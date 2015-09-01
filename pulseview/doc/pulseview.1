@@ -1,0 +1,59 @@
+.TH PULSEVIEW 1 "May 4, 2013"
+.SH "NAME"
+PulseView \- Qt-based LA/scope/MSO GUI for sigrok
+.SH "SYNOPSIS"
+.B pulseview \fR[\fB\-lh?V\fR] [\fB\-l\fR|\fB\-\-loglevel\fR] [\fB\-h\fR|\fB\-?\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] [\fBfile.sr\fR]
+.SH "DESCRIPTION"
+.B PulseView
+is a cross-platform Qt-based GUI for the
+.B sigrok
+software suite for test and measurement equipment such as logic analyzers,
+oscilloscopes, MSOs, and more.
+.SH "OPTIONS"
+.B PulseView
+has very few command line options, as most configuration elements are
+available from the GUI itself.
+.sp
+If the optional \fBfile.sr\fR argument is supplied, PulseView tries to open
+the specified file. It has to be in the "libsigrok session" format.
+.TP
+.B "\-l, \-\-loglevel"
+Set the libsigrok and libsigrokdecode loglevel. At the moment PulseView
+doesn't support setting the two loglevels independently. The higher the
+number, the more debug output will be printed. Valid loglevels are:
+.sp
+\fB0\fP   None
+.br
+\fB1\fP   Error
+.br
+\fB2\fP   Warnings
+.br
+\fB3\fP   Informational
+.br
+\fB4\fP   Debug
+.br
+\fB5\fP   Spew
+.TP
+.B "\-h, \-?, \-\-help"
+Show a help text and exit.
+.TP
+.B "\-V, \-\-version"
+Show version information and exit.
+.SH "EXIT STATUS"
+.B PulseView
+exits with 0 on success, 1 on most failures.
+.SH "SEE ALSO"
+\fBsigrok\-cli\fP(1)
+.SH "BUGS"
+Please report any bugs via Bugzilla
+.RB "(" http://sigrok.org/bugzilla ")"
+or on the sigrok\-devel mailing list
+.RB "(" sigrok\-devel@lists.souceforge.net ")."
+.SH "LICENSE"
+.B PulseView
+is covered by the GNU General Public License (GPL), version 3 or later.
+.SH "AUTHORS"
+Please see the individual source code files.
+.PP
+This manual page was written by Uwe Hermann <uwe@hermann\-uwe.de>.
+It is licensed under the terms of the GNU GPL (version 2 or later).
