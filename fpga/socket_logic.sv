@@ -6,6 +6,65 @@
 `define SPI_BUF_WIDTH 4
 `define FIFO_ADDR_WIDTH 5
 
+
+
+`define CMD_RESET         32'd0
+`define CMD_INIT        32'd1
+`define CMD_NONE        32'd2
+`define CMD_WAIT_TRIGGER    32'd3
+`define CMD_NEXT_BUF      32'd4
+`define CMD_COMPLETE      32'd5
+`define CMD_ID          32'd6
+
+`define CMD_ARM_ON_STEP   32'd7
+`define CMD_SET_VALUE     32'd8
+`define CMD_SET_RANGE     32'd9
+`define CMD_SET_VMASK     32'd10
+`define CMD_SET_EDGE      32'd11
+`define CMD_SET_EMASK     32'd12
+`define CMD_SET_CONFIG    32'd13
+`define CMD_SET_SERIALOPTS  32'd14
+
+`define RESP_RESET      32'd0
+`define RESP_INIT       32'd1
+`define RESP_NONE       32'd2
+`define RESP_ACQ        32'd3
+`define RESP_FIFO_TX      32'd4
+`define RESP_WAITING      32'd5
+`define RESP_DONE       32'd6
+
+`define RESP_ARM_ON_STEP    32'd7
+`define RESP_SET_VALUE    32'd8
+`define RESP_SET_RANGE    32'd9
+`define RESP_SET_VMASK    32'd10
+`define RESP_SET_EDGE     32'd11
+`define RESP_SET_EMASK    32'd12
+`define RESP_SET_CONFIG   32'd13
+`define RESP_SET_SERIALOPTS 32'd14
+
+
+`define CMD_TRIG_RUN        8'd0
+`define CMD_TRIG_RESET      8'd1
+`define CMD_TRIG_HALT       8'd2
+`define CMD_TRIG_SETUP      8'd3
+`define CMD_TRIG_ARM_ON_STEP    8'd4
+`define CMD_TRIG_SET_VALUE    8'd5
+`define CMD_TRIG_SET_RANGE    8'd6
+`define CMD_TRIG_SET_VMASK    8'd7
+`define CMD_TRIG_SET_EDGE     8'd8
+`define CMD_TRIG_SET_EMASK    8'd9
+`define CMD_TRIG_SET_CONFIG   8'd10
+`define CMD_TRIG_SET_SERIALOPTS 8'd11
+
+
+`define FIFO_STANDBY    32'd0
+`define FIFO_CLEARCOUNT   32'd1
+`define FIFO_WAITTRIG     32'd2
+`define FIFO_ACQ      32'd3
+`define FIFO_READOUT    32'd4
+
+
+
 //fifo_addr_width must be >= SPI_BUF_WIDTH-1 and integer multiple
 
 module instrument (
@@ -16,37 +75,13 @@ module instrument (
   input SPI_MOSI,
   output SPI_MISO,
   input SPI_SS,
-  input Reset,
-  output [3:0] spi_addr_reg,
-  output [31:0] reg_data_spi,
-  output [31:0] spi_data_reg,
-  output spi_we_reg,
-  output [`SPI_BUF_WIDTH-1:0] cont_addr_tx,
-  output cont_we_tx,
-  output [`SPI_BUF_WIDTH-1:0] spi_addr_tx,
-  output [7:0] tx_data_spi,
-  output [7:0] fifo_data_tx,
-  output [3:0] cont_cmd_fifo,
-  output [7:0] debug_out,
-  output [7:0] state,
-  output [31:0] reg0,
-  output [15:0] last,
-  output [`FIFO_ADDR_WIDTH-1:0] counter,
-  output [`FIFO_ADDR_WIDTH-1:0] fifo_addr_o,
-  output fifo_subaddr_o
+  input Reset
 ); 
   
   wire [3:0] spi_addr_reg;
   wire [31:0] reg_data_spi;
   wire [31:0] spi_data_reg; 
   wire spi_we_reg;
-  
-  
-  wire [3:0] spi_addr_reg_1;
-  reg [31:0] reg_data_spi_1;
-  wire [31:0] spi_data_reg_1; 
-  wire spi_we_reg_1;
-  
   
   //Controller-TX
   wire [`SPI_BUF_WIDTH-1:0] cont_addr_tx;
@@ -68,16 +103,15 @@ module instrument (
 
   wire [3:0] cont_cmd_fifo;
   
+  
+  wire [23:0] cont_config_trig;
+  wire [7:0] cont_command_trig;
+  wire [3:0] cont_we_trig;
+  wire trig_trigger_cont;
+  
   wire [7:0] debug_out;
   
   
-  reg [31:0] reg_bank [0:15];
-   always @(posedge inclk) begin   
-     reg_data_spi_1 <= reg_bank[spi_addr_reg_1];
-     if (spi_we_reg_1) begin
-      reg_bank[spi_addr_reg_1] <= spi_data_reg_1;
-    end
-  end
 
   // Instantiate the Unit Under Test (UUT)
   spiifc uut (
@@ -113,10 +147,11 @@ module instrument (
     //cont_addr_rx,
     cont_cmd_fifo,
     inport,
-  	state,
-    reg0,
-  	last,
-  	counter);
+    cont_config_trig,
+    cont_command_trig,
+    cont_we_trig,
+    trig_trigger_cont,
+    cont_reset_spi);
 
 
   
@@ -131,9 +166,7 @@ module instrument (
     //rx_data_fifo,
     fifo_data_tx, 
     cont_cmd_fifo, 
-    inport,
-  	fifo_addr_o,
-  	fifo_subaddr_o);
+    inport);
   
   tx_buf txbuf_inst (
     inclk,
@@ -145,12 +178,21 @@ module instrument (
 
   
   rx_buf rx_buf_inst (
-  	inclk,
-  	//cont_addr_rx, 
-  	spi_we_rx, 
+    inclk,
+    //cont_addr_rx, 
+    spi_we_rx, 
     spi_addr_rx,
     spi_data_rx/*, 
-  	rx_data_fifo*/);
+    rx_data_fifo*/);
+  
+  
+  trigger_system tsys_inst(
+    inclk,
+    cont_command_trig,
+    cont_config_trig,
+    inport,
+    trig_trigger_cont,
+    cont_we_trig);
   
 endmodule
 
@@ -204,63 +246,33 @@ module controller (
   output reg [SPI_BUF_WIDTH-1:0] cont_addr_rx,*/
   output reg [3:0] cont_cmd_fifo,
   input [15:0] inport,
-  output [7:0] state_o,
-  output [31:0] reg0_o,
-  output [15:0] last_o,
-  output [`FIFO_ADDR_WIDTH-1:0] counter_o);
+  output reg [23:0] cont_config_trig,
+  output reg [7:0] cont_command_trig,
+  output reg [3:0] cont_we_trig,
+  input trig_trigger_cont,
+  output reg cont_reset_spi);
 
-  `define STATE_STANDBY     8'd0
-  `define STATE_WAIT_TRIGGER     8'd1
-  `define STATE_ACQUIRE     8'd2
-  `define STATE_FIFO_TX  8'd3
-  `define STATE_WAIT_SPI  8'd4
-  `define STATE_SEND_WORD   8'd5
-  `define STATE_EXTRA   8'd6
+  `define STATE_STANDBY       8'd0
+  `define STATE_WAIT_TRIGGER    8'd1
+  `define STATE_ACQUIRE       8'd2
+  `define STATE_FIFO_TX     8'd3
+  `define STATE_WAIT_SPI      8'd4
+  `define STATE_SEND_WORD     8'd5
+  `define STATE_EXTRA       8'd6
 
-  `define CMD_NONE   32'd0
-  `define CMD_WAIT_TRIGGER   32'd1
-  `define RESP_ACQ   32'd2
-  `define RESP_FIFO_TX   32'd3
-  `define RESP_WAITING   32'd4
-  `define CMD_NEXT_BUF   32'd5
-  `define CMD_COMPLETE   32'd6
-  `define CMD_ID   		 32'd7
-  
-  
-  `define FIFO_STANDBY   32'd0
-  `define FIFO_CLEARCOUNT   32'd1
-  `define FIFO_WAITTRIG   32'd2
-  `define FIFO_ACQ   32'd3
-  `define FIFO_READOUT   32'd4
 
   reg [7:0] state;
   
-  assign state_o = state;
   
   reg [31:0] reg_bank [0:15];
   
   reg [15:0] last;
   
-  assign last_o = last;
   
-  assign reg0_o = reg_bank[0];
-  
-  
-  
-   
- 
-  
-  initial begin
-    state <= `STATE_STANDBY;
-    reg_bank[0] <=  `CMD_NONE;
-    cont_cmd_fifo <= `FIFO_CLEARCOUNT;
-    cont_we_tx <= 0;
-    last <= 0;
-  end
+
 
   reg [`FIFO_ADDR_WIDTH-1:0] counter;
   
-  assign counter_o = counter;
   
   always @(posedge inclk) begin   
     reg_data_spi <= reg_bank[spi_addr_reg];
@@ -268,26 +280,150 @@ module controller (
       reg_bank[spi_addr_reg] <= spi_data_reg;
     end
   end
-
+  
+  
+  
   always @(posedge inclk) begin   
-   
-    
-    if (`STATE_STANDBY == state) begin
-
+    if (reg_bank[0] == `CMD_RESET) begin
+      //reset all
+      state <= `STATE_STANDBY;
+      cont_cmd_fifo <= `FIFO_CLEARCOUNT;
+      cont_we_tx <= 0;
+      last <= 0;
+      cont_config_trig <= 0;
+      cont_command_trig <= `CMD_TRIG_RESET;
+      cont_we_trig <= 0;
+      state <= `STATE_STANDBY;
+      cont_cmd_fifo <= `FIFO_CLEARCOUNT;
+      cont_reset_spi <= 1;
+      reg_bank[1] <= `RESP_RESET;
+      
+    end else if (reg_bank[0] == `CMD_INIT) begin
+      reg_bank[1] <= `RESP_INIT;
+      cont_reset_spi <= 0;
+      cont_command_trig <= `CMD_TRIG_HALT;
+      
+    end else if (reg_bank[0] == `CMD_NONE) begin
+      reg_bank[1] <= `RESP_NONE;
+      
+    end else if (reg_bank[0] == `CMD_ARM_ON_STEP && reg_bank[1] != `RESP_ARM_ON_STEP) begin
+      if (cont_command_trig == `CMD_TRIG_HALT) begin
+        cont_config_trig <= reg_bank[2][23:0];
+        cont_command_trig <= `CMD_TRIG_SETUP;
+      end else if (cont_command_trig == `CMD_TRIG_SETUP) begin
+        cont_command_trig <= `CMD_TRIG_ARM_ON_STEP;
+      end else begin
+        cont_command_trig <= `CMD_TRIG_HALT;
+        reg_bank[1] <= `RESP_ARM_ON_STEP;
+      end
+      
+    end else if (reg_bank[0] == `CMD_SET_VALUE && reg_bank[1] != `RESP_SET_VALUE) begin
+      if (cont_command_trig == `CMD_TRIG_HALT) begin
+        cont_we_trig[reg_bank[2][31:24]] <= 1;
+        cont_config_trig <= reg_bank[2][23:0];
+        cont_command_trig <= `CMD_TRIG_SETUP;
+      end else if (cont_command_trig == `CMD_TRIG_SETUP) begin
+        cont_command_trig <= `CMD_TRIG_SET_VALUE;
+      end else begin
+        cont_command_trig <= `CMD_TRIG_HALT;
+        cont_we_trig <= 0;
+        reg_bank[1] <= `RESP_SET_VALUE;
+      end
+      
+    end else if (reg_bank[0] == `CMD_SET_RANGE && reg_bank[1] != `RESP_SET_RANGE) begin
+      if (cont_command_trig == `CMD_TRIG_HALT) begin
+        cont_we_trig[reg_bank[2][31:24]] <= 1;
+        cont_config_trig <= reg_bank[2][23:0];
+        cont_command_trig <= `CMD_TRIG_SETUP;
+      end else if (cont_command_trig == `CMD_TRIG_SETUP) begin
+        cont_command_trig <= `CMD_TRIG_SET_RANGE;
+      end else begin
+        cont_command_trig <= `CMD_TRIG_HALT;
+        cont_we_trig <= 0;
+        reg_bank[1] <= `RESP_SET_RANGE;
+      end
+      
+    end else if (reg_bank[0] == `CMD_SET_VMASK && reg_bank[1] != `RESP_SET_VMASK) begin
+      if (cont_command_trig == `CMD_TRIG_HALT) begin
+        cont_we_trig[reg_bank[2][31:24]] <= 1;
+        cont_config_trig <= reg_bank[2][23:0];
+        cont_command_trig <= `CMD_TRIG_SETUP;
+      end else if (cont_command_trig == `CMD_TRIG_SETUP) begin
+        cont_command_trig <= `CMD_TRIG_SET_VMASK;
+      end else begin
+        cont_command_trig <= `CMD_TRIG_HALT;
+        cont_we_trig <= 0;
+        reg_bank[1] <= `RESP_SET_VMASK;
+      end
+      
+    end else if (reg_bank[0] == `CMD_SET_EDGE && reg_bank[1] != `RESP_SET_EDGE) begin
+      if (cont_command_trig == `CMD_TRIG_HALT) begin
+        cont_we_trig[reg_bank[2][31:24]] <= 1;
+        cont_config_trig <= reg_bank[2][23:0];
+        cont_command_trig <= `CMD_TRIG_SETUP;
+      end else if (cont_command_trig == `CMD_TRIG_SETUP) begin
+        cont_command_trig <= `CMD_TRIG_SET_EDGE;
+      end else begin
+        cont_command_trig <= `CMD_TRIG_HALT;
+        cont_we_trig <= 0;
+        reg_bank[1] <= `RESP_SET_EDGE;
+      end
+      
+    end else if (reg_bank[0] == `CMD_SET_EMASK && reg_bank[1] != `RESP_SET_EMASK) begin
+      if (cont_command_trig == `CMD_TRIG_HALT) begin
+        cont_we_trig[reg_bank[2][31:24]] <= 1;
+        cont_config_trig <= reg_bank[2][23:0];
+        cont_command_trig <= `CMD_TRIG_SETUP;
+      end else if (cont_command_trig == `CMD_TRIG_SETUP) begin
+        cont_command_trig <= `CMD_TRIG_SET_EMASK;
+      end else begin
+        cont_command_trig <= `CMD_TRIG_HALT;
+        cont_we_trig <= 0;
+        reg_bank[1] <= `RESP_SET_EMASK;
+      end
+      
+    end else if (reg_bank[0] == `CMD_SET_CONFIG && reg_bank[1] != `RESP_SET_CONFIG) begin
+      if (cont_command_trig == `CMD_TRIG_HALT) begin
+        cont_we_trig[reg_bank[2][31:24]] <= 1;
+        cont_config_trig <= reg_bank[2][23:0];
+        cont_command_trig <= `CMD_TRIG_SETUP;
+      end else if (cont_command_trig == `CMD_TRIG_SETUP) begin
+        cont_command_trig <= `CMD_TRIG_SET_CONFIG;
+      end else begin
+        cont_command_trig <= `CMD_TRIG_HALT;
+        cont_we_trig <= 0;
+        reg_bank[1] <= `RESP_SET_CONFIG;
+      end
+      
+    end else if (reg_bank[0] == `CMD_SET_SERIALOPTS && reg_bank[1] != `RESP_SET_SERIALOPTS) begin
+      if (cont_command_trig == `CMD_TRIG_HALT) begin
+        cont_we_trig[reg_bank[2][31:24]] <= 1;
+        cont_config_trig <= reg_bank[2][23:0];
+        cont_command_trig <= `CMD_TRIG_SETUP;
+      end else if (cont_command_trig == `CMD_TRIG_SETUP) begin
+        cont_command_trig <= `CMD_TRIG_SET_SERIALOPTS;
+      end else begin
+        cont_command_trig <= `CMD_TRIG_HALT;
+        cont_we_trig <= 0;
+        reg_bank[1] <= `RESP_SET_SERIALOPTS;
+      end
+      
+    end else if (`STATE_STANDBY == state) begin
       if (reg_bank[0] == `CMD_WAIT_TRIGGER) begin
         state <= `STATE_WAIT_TRIGGER;
         cont_cmd_fifo <= `FIFO_WAITTRIG;
         last <= inport;
         counter <= 0;
+        cont_command_trig <= `CMD_TRIG_RUN;
       end
-
+      
     end else if (`STATE_WAIT_TRIGGER == state) begin
 
-      if (inport[reg_bank[1][3:0]] == reg_bank[2][0] & last[reg_bank[1][3:0]] == ~reg_bank[2][0]) begin //if inport[bit] == edge
+      if (trig_trigger_cont) begin //if inport[bit] == edge
         state <= `STATE_ACQUIRE;
         cont_cmd_fifo <= `FIFO_ACQ;
         cont_we_tx <= 0;
-        reg_bank[0] <= `RESP_ACQ;
+        reg_bank[1] <= `RESP_ACQ;
         counter <= 0;
       end
       last <= inport;
@@ -299,9 +435,9 @@ module controller (
         cont_cmd_fifo <= `FIFO_CLEARCOUNT;
         cont_we_tx <= 1;
         cont_addr_tx <= 0;
-        reg_bank[0] <= `RESP_FIFO_TX;
-        reg_bank[1] <= 16;
-        reg_bank[2] <= `FIFO_ADDR_WIDTH;
+        reg_bank[1] <= `RESP_FIFO_TX;
+        reg_bank[2] <= 16;
+        reg_bank[3] <= `FIFO_ADDR_WIDTH;
         counter <= 0;
       end else begin
         counter <= counter + 1;
@@ -321,7 +457,7 @@ module controller (
         state <= `STATE_WAIT_SPI;
         cont_cmd_fifo <= `FIFO_STANDBY;
         cont_we_tx <= 0;
-        reg_bank[0] = `RESP_WAITING;
+        reg_bank[1] = `RESP_WAITING;
       end else begin
         cont_addr_tx <= cont_addr_tx + 1;
       end
@@ -332,12 +468,12 @@ module controller (
         cont_cmd_fifo <= `FIFO_READOUT;
         cont_we_tx <= 1;
         cont_addr_tx <= 0;
-        reg_bank[0] = `RESP_FIFO_TX;
-        reg_bank[1] = 16;
-        reg_bank[2] = `FIFO_ADDR_WIDTH;
+        reg_bank[1] = `RESP_FIFO_TX;
+        reg_bank[2] = 16;
+        reg_bank[3] = `FIFO_ADDR_WIDTH;
       end else if (reg_bank[0] == `CMD_COMPLETE) begin
         state <= `STATE_STANDBY;
-        reg_bank[0] <=  `CMD_NONE;
+        reg_bank[1] <=  `RESP_DONE;
         cont_cmd_fifo <= `FIFO_CLEARCOUNT;
         cont_we_tx <= 0;
       end
@@ -348,6 +484,291 @@ module controller (
 endmodule
 
 
+module trigger_system(inclk,command,config_in,inport,trig,we);
+  
+  
+
+
+  `define STATE_SYS_STANDBY   8'd0
+  `define STATE_SYS_RUN     8'd1
+  `define STATE_SYS_FIRED   8'd2
+
+
+  
+  input [23:0] config_in;
+  input [7:0] command;
+  input [3:0] we;
+  
+  
+  reg [3:0] t_last;
+  
+  input inclk;
+  input [15:0] inport;
+
+  
+  reg [7:0] state;
+  reg [7:0] trig_on;
+  
+  reg [7:0] step;
+  
+  output reg trig;
+  
+  wire [3:0] triggered;
+  
+  genvar index;  
+  generate  
+    for (index=0; index < 4; index=index+1)  
+    begin: gen_t_stages  
+      trigger_stage trigger_gen(inclk, command, config_in, inport, step, triggered[index], we[index]);
+    end  
+  endgenerate 
+
+  always @(posedge inclk) 
+  begin
+    if (command == `CMD_TRIG_RESET) begin
+      state <= `STATE_SYS_STANDBY;
+      step <= 0;
+      trig <= 0;
+      t_last <= 0;
+      trig_on <= 0;
+    end else if (command == `CMD_TRIG_RUN)
+    begin
+      if (state == `STATE_SYS_STANDBY) begin
+        step <= 1;
+        t_last <= triggered;
+        state <= `STATE_SYS_RUN;
+      end else if (state == `STATE_SYS_RUN) begin
+        if (t_last != triggered)
+        begin
+          t_last <= triggered;
+          step <= step + 1;
+          if (step+1 == trig_on) begin
+            state <= `STATE_SYS_FIRED;
+            trig <= 1;
+          end
+        end else begin
+          t_last <= triggered;
+        end
+      end
+    end else if (command == `CMD_TRIG_ARM_ON_STEP) 
+    begin
+      trig_on <= config_in[23:16];
+    end
+  end    
+  
+  
+  
+endmodule
+
+
+ 
+
+
+module trigger_stage(inclk, command, config_in, inport, step, triggered, we); 
+  
+  
+    
+  `define FMT_PAR   2'd0
+  `define FMT_EDGE  2'd1
+  `define FMT_SER   2'd2
+
+  `define STATE_TRIG_STANDBY  8'd0
+  `define STATE_TRIG_ARMED    8'd1
+  `define STATE_TRIG_DELAY    8'd2
+  `define STATE_TRIG_FIRED    8'd3
+
+
+  
+  input [23:0] config_in;
+  input [7:0] command;
+  input we;
+  
+  reg [7:0] arm_on_step;
+  reg [15:0] delay;
+  reg [15:0] vmask;
+  reg [15:0] value;
+  reg [15:0] evalue;
+  reg [15:0] emask;
+  reg [15:0] range_top;
+  reg [7:0] repetitions;
+  reg [3:0] data_ch;
+  reg [4:0] clock_ch;
+  reg [6:0] cycle_delay;
+  reg [1:0] format;
+  reg range;
+  
+  reg [15:0] last;
+  
+  input inclk;
+  input [15:0] inport;
+  
+  reg [7:0] occur;
+  reg [15:0] dcount;
+  
+  input [7:0] step;
+
+  reg [7:0] state;
+  
+  output reg triggered;
+  
+  wire shift_clk;
+  wire shift_in;
+  
+  assign shift_clk = (~clock_ch[4]) ? inclk:inport[clock_ch[3:0]];
+  assign shift_in = inport[data_ch];
+  
+  wire e_trig;
+  wire v_trig;
+  wire r_trig;
+  wire sv_trig;
+  wire sr_trig;
+  wire s_trig;
+  
+  wire xx;
+  wire yy;
+  
+  assign xx = value & vmask;
+  assign yy = vmask & inport;
+  
+  
+  assign e_trig = ((~evalue & emask) == (emask & last)) && ((evalue & emask) == (emask & inport));
+  assign v_trig = ~range && ((value & vmask) == (vmask & inport));
+  assign r_trig = range && ((value & vmask) <= (vmask & inport)) && ((range_top & vmask) >= (vmask & inport));
+  
+  assign sv_trig = ~range && ((value & vmask) == (vmask & PO));
+  assign sr_trig =  range && ((value & vmask) <= (vmask & PO)) && ((range_top & vmask) >= (vmask & PO));
+  
+  assign s_trig = ((format == `FMT_SER) && (sv_trig || sr_trig));
+  
+  wire [15:0] PO;
+  
+  reg reset_shift;
+ 
+  shift_delay shift_delay_inst(shift_clk, shift_in, PO, cycle_delay, reset_shift); 
+
+  always @(posedge inclk) 
+  begin
+    if (command == `CMD_TRIG_RESET) begin
+      state <= `STATE_TRIG_STANDBY;
+      arm_on_step <= 0;
+      delay <= 0;
+      vmask <= 0;
+      value <= 0;
+      evalue <= 0;
+      emask <= 0;
+      range_top <= 0;
+      repetitions <= 0;
+      data_ch <= 0;
+      clock_ch <= 0;
+      cycle_delay <= 0;
+      format <= 0;
+      range <= 0;
+      last <= 0;
+      occur <= 0;
+      dcount <= 0;
+      triggered <= 0;
+      reset_shift <= 1;
+    end else if (step == arm_on_step+1) begin
+      state <= `STATE_TRIG_FIRED;
+    end else if (command == `CMD_TRIG_RUN)
+    begin
+      if (state == `STATE_TRIG_STANDBY) begin
+        occur <= 0;
+        dcount <= 0;
+        if (step == arm_on_step) begin
+          reset_shift <= 0;
+          state <= `STATE_TRIG_ARMED;
+          last <= inport;
+        end
+      end else if (state == `STATE_TRIG_ARMED) begin
+        if ((v_trig || r_trig || s_trig) &&   ((format == `FMT_PAR) || ((format == `FMT_EDGE) && e_trig) || s_trig))
+        begin
+          occur <= occur + 1;
+          if (delay > 0) begin
+              state <= `STATE_TRIG_DELAY;
+              dcount <= 0;
+          end else if (occur == repetitions) begin
+              state <= `STATE_TRIG_FIRED;
+              triggered <= 1;
+          end 
+        end else begin
+          last <= inport;
+        end
+      end else if (state == `STATE_TRIG_DELAY) begin
+        dcount <= dcount + 1;
+        if (dcount == delay) begin
+          if (occur == repetitions) begin
+            state <= `STATE_TRIG_FIRED;
+            reset_shift <= 1;
+            triggered <= 1;
+          end else begin
+            last <= inport;
+            state <= `STATE_TRIG_ARMED;
+          end
+        end
+      end
+    end else 
+    begin
+      if (we) begin
+        if (command == `CMD_TRIG_SET_VALUE) begin
+          value <= config_in[23:8];
+          repetitions <= config_in[7:0];
+        end else if (command == `CMD_TRIG_SET_RANGE) begin
+          range_top <= config_in[23:8];
+        end else if (command == `CMD_TRIG_SET_VMASK) begin
+          vmask <= config_in[23:8];
+          arm_on_step <= config_in[7:0];
+        end else if (command == `CMD_TRIG_SET_EDGE) begin
+          evalue <= config_in[23:8];
+        end else if (command == `CMD_TRIG_SET_EMASK) begin
+          emask <= config_in[23:8];
+        end else if (command == `CMD_TRIG_SET_CONFIG) begin
+          delay <= config_in[23:8];
+          format <= config_in[7:6];
+          range <= config_in[5];  
+        end else if (command == `CMD_TRIG_SET_SERIALOPTS) begin
+          data_ch <= config_in[23:20];
+          clock_ch <= config_in[19:15];
+          cycle_delay <= config_in[6:0]; 
+        end
+      end
+    end
+  end         
+    
+endmodule
+          
+
+module shift_delay(C, SI, PO, cycle_delay, reset); 
+  input  C,SI; 
+  input [6:0] cycle_delay;
+  reg [6:0] count;
+  output [15:0] PO; 
+  reg [15:0] tmp; 
+  input reset;
+  
+  initial begin
+      count = 0;
+  end
+  always @(posedge C) 
+  begin 
+    if (reset) begin
+      count <= 0;
+      tmp <= 0; 
+    end else if (count == cycle_delay)
+    begin
+      count <= 0;
+      tmp <= {tmp[14:0], SI}; 
+    end else
+    begin
+      count <= count + 1;
+    end
+  end 
+  assign PO = tmp; 
+endmodule 
+
+
+
+
 
 
 module fifo 
@@ -356,9 +777,7 @@ module fifo
   //input [7:0] rx_data_fifo,
   output reg [7:0] fifo_data_tx,
   input [3:0] cont_cmd_fifo,
-  input [15:0] inport,
-  output [`FIFO_ADDR_WIDTH-1:0] fifo_addr_o,
-  output fifo_subaddr_o
+  input [15:0] inport
 );
 
   
@@ -377,15 +796,14 @@ module fifo
   reg sub_addr;
   reg [1:0] step;
 
-  assign fifo_subaddr_o = sub_addr;
-  assign fifo_addr_o = addr_reg;
+
   // Specify the initial contents.  You can also use the $readmemb
   // system task to initialize the RAM variable from a text file.
   // See the $readmemb template page for details.
   initial 
   begin
     addr_reg <= 0;
-  	sub_addr <= 1;
+    sub_addr <= 1;
     step <= 0;
   end 
 
