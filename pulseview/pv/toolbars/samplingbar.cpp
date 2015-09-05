@@ -268,7 +268,6 @@ void SamplingBar::update_sample_count_selector()
 	assert(!updating_sample_count_);
 	updating_sample_count_ = true;
 
-	printf("%d\n", sample_count_supported_?1:0);
 
 	if (!sample_count_supported_)
 	{

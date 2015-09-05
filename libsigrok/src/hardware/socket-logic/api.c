@@ -81,8 +81,8 @@ static const char *coupleopts[] = {
 
 /* Channels are numbered 0-31 (on the PCB silkscreen). */
 SR_PRIV const char *socket_logic_channel_names[NUM_CHANNELS+1] = {
-	"a0", "a1", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10", "d11", "d12",
-	"d13", "d14", "d15",NULL,
+	"d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10", "d11", "d12",
+	"d13", "d14", "d15","a0", "a1",NULL,
 };
 
 /* Default supported samplerates, can be overridden by device metadata. */
@@ -211,7 +211,7 @@ static GSList *scan(GSList *options)
 
 
 	for (i = 0; socket_logic_channel_names[i] ; i++) {
-			int chtype = (i == 0 || i == 1) ? SR_CHANNEL_ANALOG : SR_CHANNEL_LOGIC;
+			int chtype = (i == 16 || i == 17) ? SR_CHANNEL_ANALOG : SR_CHANNEL_LOGIC;
 			if (!(ch = sr_channel_new(i, chtype, TRUE,
 					socket_logic_channel_names[i])))
 				return 0;

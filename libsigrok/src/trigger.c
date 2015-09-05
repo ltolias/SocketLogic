@@ -75,6 +75,23 @@ SR_API struct sr_trigger_stage *sr_trigger_stage_add(struct sr_trigger *trig)
 	return stage;
 }
 
+SR_API struct sr_trigger_stage *sr_trigger_stage_add_socket_logic(struct sr_trigger *trig, struct sr_socket_logic_trigger_stage_config *sltsc)
+{
+	struct sr_trigger_stage *stage;
+
+	stage = g_malloc0(sizeof(struct sr_trigger_stage));
+	stage->stage = g_slist_length(trig->stages);
+	trig->stages = g_slist_append(trig->stages, stage);
+	stage->sl_cfg.delay = sltsc->delay;
+	stage->sl_cfg.repeat = sltsc->repeat;
+	stage->sl_cfg.data_ch = sltsc->data_ch;
+	stage->sl_cfg.clock_ch = sltsc->clock_ch;
+	stage->sl_cfg.cycle_delay = sltsc->cycle_delay;
+	stage->sl_cfg.format = sltsc->format;
+	stage->sl_cfg.range = sltsc->range;
+	return stage;
+}
+
 SR_API int sr_trigger_match_add(struct sr_trigger_stage *stage,
 		struct sr_channel *ch, int trigger_match, float value)
 {
@@ -85,7 +102,8 @@ SR_API int sr_trigger_match_add(struct sr_trigger_stage *stage,
 				trigger_match != SR_TRIGGER_ONE &&
 				trigger_match != SR_TRIGGER_RISING &&
 				trigger_match != SR_TRIGGER_FALLING &&
-				trigger_match != SR_TRIGGER_EDGE) {
+				trigger_match != SR_TRIGGER_EDGE && 
+				trigger_match != SR_TRIGGER_RANGE_TOP) {
 			sr_err("Invalid trigger match for a logic channel.");
 			return SR_ERR_ARG;
 		}

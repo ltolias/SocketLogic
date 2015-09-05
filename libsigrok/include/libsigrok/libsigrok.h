@@ -350,6 +350,7 @@ enum sr_trigger_matches {
 	SR_TRIGGER_EDGE,
 	SR_TRIGGER_OVER,
 	SR_TRIGGER_UNDER,
+	SR_TRIGGER_RANGE_TOP,
 };
 
 /** The representation of a trigger, consisting of one or more stages
@@ -362,13 +363,26 @@ struct sr_trigger {
 	GSList *stages;
 };
 
+struct sr_socket_logic_trigger_stage_config {
+	uint16_t delay;
+	uint8_t repeat;
+	uint8_t data_ch;
+	uint8_t clock_ch;
+	uint8_t cycle_delay;
+	uint8_t format;
+	uint8_t range;
+};
+
 /** A trigger stage. */
 struct sr_trigger_stage {
 	/** Starts at 0. */
 	int stage;
+	struct sr_socket_logic_trigger_stage_config sl_cfg;
 	/** List of pointers to struct sr_trigger_match. */
 	GSList *matches;
 };
+
+
 
 /** A channel to match and what to match it on. */
 struct sr_trigger_match {

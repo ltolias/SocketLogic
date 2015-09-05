@@ -125,7 +125,6 @@ struct dev_context {
 	uint16_t trigger_slope;
 	int32_t num_vdiv;
 	uint16_t coupling;
-	int32_t num_logic_channels;
 	GSList *analog_channels;
 	GSList *logic_channels;
 

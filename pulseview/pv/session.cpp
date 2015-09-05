@@ -194,7 +194,7 @@ void Session::set_default_device()
 		// Try and find the demo device and select that by default
 		for (shared_ptr<HardwareDevice> dev : devices)
 		{
-			printf("compare: %s\n", dev->driver()->name().c_str());
+			//printf("compare: %s\n", dev->driver()->name().c_str());
 			if (dev->driver()->name().compare("socket-logic") == 0) {
 				default_device = dev;
 				break;
@@ -528,9 +528,9 @@ void Session::feed_in_logic(shared_ptr<Logic> logic)
 		cur_logic_segment_ = shared_ptr<data::LogicSegment>(
 			new data::LogicSegment(
 				logic, cur_samplerate_, sample_limit));
-		uint8_t samp1[4];
+		/*uint8_t samp1[4];
 		cur_logic_segment_->get_samples(samp1,65535, 65537);
-		printf("%d:%d,%d:%d\n", samp1[0], samp1[1], samp1[2], samp1[3]);
+		printf("%d:%d,%d:%d\n", samp1[0], samp1[1], samp1[2], samp1[3]);*/
 
 		logic_data_->push_segment(cur_logic_segment_);
 
@@ -671,7 +671,6 @@ void Session::data_feed_in(shared_ptr<Device> device, shared_ptr<Packet> packet)
 		break;
 
 	case SR_DF_LOGIC:
-		
 		feed_in_logic(dynamic_pointer_cast<Logic>(packet->payload()));
 		break;
 

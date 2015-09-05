@@ -626,6 +626,14 @@ shared_ptr<TriggerStage> Trigger::add_stage()
 	return stage->get_shared_pointer(this);
 }
 
+shared_ptr<TriggerStage> Trigger::add_stage_socket_logic(struct sr_socket_logic_trigger_stage_config *sltsc)
+{
+	auto stage = new TriggerStage(sr_trigger_stage_add_socket_logic(_structure, sltsc));
+	_stages.push_back(stage);
+	return stage->get_shared_pointer(this);
+}
+
+
 TriggerStage::TriggerStage(struct sr_trigger_stage *structure) : 
 	ParentOwned(structure)
 {

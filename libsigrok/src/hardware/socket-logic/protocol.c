@@ -480,13 +480,17 @@ SR_PRIV int socket_logic_receive_data(int fd, int revents, void *cb_data)
 			sr_session_send(cb_data, &packet);
 		}
 
-		/* Send post-trigger samples. */
-		packet.type = SR_DF_LOGIC;
-		packet.payload = &logic;
-		logic.length = (devc->num_samples * 2);// - (devc->trigger_at * 2);
-		logic.unitsize = 2;
-		logic.data = devc->raw_sample_buf;
-		sr_session_send(cb_data, &packet);
+		int num_logic_ch = g_slist_length(devc->logic_channels);
+		if (num_logic_ch > 0)
+		{
+			/* Send post-trigger samples. */
+			packet.type = SR_DF_LOGIC;
+			packet.payload = &logic;
+			logic.length = (devc->num_samples * 2);// - (devc->trigger_at * 2);
+			logic.unitsize = 2;
+			logic.data = devc->raw_sample_buf;
+			sr_session_send(cb_data, &packet);
+		}
 
 		int num_analog_ch = g_slist_length(devc->analog_channels);
 		if (num_analog_ch > 0)
