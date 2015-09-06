@@ -9,13 +9,13 @@
 #include <termios.h>
 #include <stdlib.h> 
 
-/*#include <fcntl.h>              //Needed for SPI port
+#include <fcntl.h>              //Needed for SPI port
 #include <sys/ioctl.h>          //Needed for SPI port
-#include <linux/spi/spidev.h>   //Needed for SPI port
+//#include <linux/spi/spidev.h>   //Needed for SPI port
 #include <stdio.h>
 #include <stdlib.h>
-#include <string>
-#include <iostream>
+#include <string.h>
+
 
 
 int spi_cs0_fd;             //file descriptor for the SPI device
@@ -25,7 +25,7 @@ unsigned char spi_bitsPerWord;
 unsigned int spi_speed;
 
 
-*/
+
 #define MSG_LENGTH_SERVER 10000//131072
 #define MSG_LENGTH_CLIENT 200//120
 
@@ -115,16 +115,11 @@ int kbhit()
     return FD_ISSET(STDIN_FILENO, &fds);
 }
 
+
 /*
-//***********************************
-//***********************************
-//********** SPI OPEN PORT **********
-//***********************************
-//***********************************
 //spi_device    0=CS0, 1=CS1
 int SpiOpenPort (int spi_device)
 {
-    /()
     int status_value = -1;
     int *spi_cs_fd;
 
@@ -205,12 +200,6 @@ int SpiOpenPort (int spi_device)
 }
 
 
-
-//************************************
-//************************************
-//********** SPI CLOSE PORT **********
-//************************************
-//************************************
 int SpiClosePort (int spi_device)
 {
     int status_value = -1;
@@ -233,11 +222,6 @@ int SpiClosePort (int spi_device)
 
 
 
-//*******************************************
-//*******************************************
-//********** SPI WRITE & READ DATA **********
-//*******************************************
-//*******************************************
 //data      Bytes to write.  Contents is overwritten with bytes read.
 int SpiWriteAndRead (int spi_device, unsigned char *data, int length)
 {
@@ -315,61 +299,76 @@ int compindex = 0;
 int i = 0;
 int stage;
 
-#define OLS_CMD_RESET                  0x00
-#define OLS_CMD_RUN                    0x01
-#define OLS_CMD_TESTMODE               0x03
-#define OLS_CMD_ID                     0x02
-#define OLS_CMD_METADATA               0x04
-#define OLS_CMD_SET_FLAGS              0x82
-#define OLS_CMD_SET_DIVIDER            0x80
-#define OLS_CMD_CAPTURE_SIZE           0x81
-#define OLS_CMD_SET_TRIGGER_MASK       0xc0
-#define OLS_CMD_SET_TRIGGER_VALUE      0xc1
-#define OLS_CMD_SET_TRIGGER_CONFIG     0xc2
+#define CMD_RESET           0
+#define CMD_INIT            1
+#define CMD_NONE            2
+#define CMD_WAIT_TRIGGER    3
+#define CMD_NEXT_BUF        4
+#define CMD_COMPLETE        5
+#define CMD_ID              6
 
+#define CMD_ARM_ON_STEP     7
+#define CMD_SET_VALUE       8
+#define CMD_SET_RANGE       9
+#define CMD_SET_VMASK       10
+#define CMD_SET_EDGE        11
+#define CMD_SET_EMASK       12
+#define CMD_SET_CONFIG      13
+#define CMD_SET_SERIALOPTS  14
+#define CMD_CAPTURE_SIZE    15
+#define CMD_SAMPLE_RATE     16
 
-#define CMD_NONE            0x00
-#define CMD_WAIT_TRIGGER    0x01
-#define RESP_ACQ            0x02
-#define RESP_FIFO_TX        0x03
-#define RESP_WAITING        0x04
-#define CMD_NEXT_BUF        0x05
-#define CMD_COMPLETE        0x06
-#define CMD_ID              0x07
-#define RESP_ID             0x80
+#define RESP_RESET          0
+#define RESP_INIT           1
+#define RESP_NONE           2
+#define RESP_ACQ            3
+#define RESP_FIFO_TX        4
+#define RESP_WAITING        5
+#define RESP_DONE           6
 
-#define WRITE0  0xc0
-#define READ0   0x80
-#define WRITE1  0xc1
-#define READ1   0x81
-#define WRITE2  0xc2
-#define READ2   0x82
-#define WRITE3  0xc3
-#define READ3   0x83
-#define WRITE4  0xc3
-#define READ4   0x83
-#define WRITE5  0xc3
-#define READ5   0x83
+#define RESP_ARM_ON_STEP    7
+#define RESP_SET_VALUE      8
+#define RESP_SET_RANGE      9
+#define RESP_SET_VMASK      10
+#define RESP_SET_EDGE       11
+#define RESP_SET_EMASK      12
+#define RESP_SET_CONFIG     13
+#define RESP_SET_SERIALOPTS 14
+#define RESP_CAPTURE_SIZE   15
+#define RESP_SAMPLE_RATE    16
 
 
 #define SPI_BUFF_LEN 4096 + 1
 
 unsigned char spi_data[SPI_BUFF_LEN];
 
+static unsigned char read_data[5] = {0x00,0x00,0x00,0x00,0x00};
+
 void write_reg(unsigned char reg, unsigned char a0, unsigned char a1, unsigned char a2, unsigned char a3)
 {
-    unsigned char data[5] = {reg,a0,a1,a2,a3};
+    unsigned char data[5] = {(reg | 0xc0),a0,a1,a2,a3};
     //SpiWriteAndRead(1, data, 5);
 }
-
-
-unsigned char *read_reg(unsigned char reg)
+void send_command(unsigned char command)
 {
-    static unsigned char data[5] = {reg,0x00,0x00,0x00,0x00};
-    data[0] = reg;
-    //SpiWriteAndRead(1, data, 5);
-    return data;
+    write_reg(0x00,0x00,0x00,0x00,command);
 }
+void read_reg(unsigned char reg)
+{
+    read_data[0] = (reg | 0x80);
+    //SpiWriteAndRead(1, read_data, 5); 
+}
+void block_reg(unsigned char reg, unsigned char val)
+{
+    read_reg(reg);
+    //while (read_data[4] != val)
+    //    read_reg(reg);
+}
+void block_response(unsigned char response)
+{
+    block_reg(0x08, response);
+}
+
 const char *byte_to_binary(uint16_t x)
 {
     static char b[17];
@@ -383,7 +382,6 @@ const char *byte_to_binary(uint16_t x)
 
     return b;
 }
-
 
 unsigned char spii = 0;
 unsigned char spij = 0;
@@ -408,39 +406,44 @@ void doStateMachine()
     printf("\tmessage: %s\n", client_message_comp);
     char to[2] = "ff";
     strncpy(to, client_message_comp, 2);
-    sscanf(to, "%x", &command);
+    sscanf(to, "%hhx", &command);
 
     //single byte commands
-    if (command < 0x05)
+    if (command < 0x07)
     {
-        if (command == OLS_CMD_RESET)
+        if (command == CMD_RESET)
         {
             printf("\t\tcommand: RESET\n");
-            //write_reg(WRITE0,0x00,0x00,0x00,CMD_NONE);
+            send_command(CMD_RESET);
+            block_response(RESP_RESET);
+        }
+        if (command == CMD_INIT)
+        {
+            printf("\t\tcommand: INIT\n");
+            send_command(CMD_INIT);
+            block_response(RESP_INIT);
         }
 
-        if (command == OLS_CMD_ID)
+        if (command == CMD_ID)
         {
             printf("\t\tcommand: ID\n");
             //write_reg(WRITE0,0x00,0x00,0x00,CMD_ID);
             //while (read_reg(READ0)[4] != RESP_ID);
-
             sprintf(server_message, "1SLO");
             write(client_sock , server_message , strlen(server_message));
         }
 
-        else if (command == OLS_CMD_RUN)
+        else if (command == CMD_WAIT_TRIGGER)
         {
 
             printf("\t\tcommand: RUN\n");
-            //write_reg(WRITE0,0x00,0x00,0x00,CMD_WAIT_TRIGGER);
-            int offset = (rand() % (int)(0.2*total_samples));
 
+            send_command(CMD_WAIT_TRIGGER);
+
+            int offset = (rand() % (int)(0.2*total_samples));
             spii = offset;
             spij = 0;
-            
-       
-
+        
             int runs = total_samples*2 / (SPI_BUFF_LEN-1);
             runs += total_samples*2 % (SPI_BUFF_LEN-1) == 0 ? 0:1;
 
@@ -451,18 +454,18 @@ void doStateMachine()
                 if (j == runs-1 && (total_samples*2) % (SPI_BUFF_LEN-1) != 0 )
                     tosend = (total_samples*2 % (SPI_BUFF_LEN-1)) + 1;
 
-                //while (read_reg(READ0)[4] != RESP_WAITING);
-                //spi_data[0] = 0x03;
+                block_response(RESP_WAITING);
+                spi_data[0] = 0x03;
                 //SpiWriteAndRead(1, spi_data, tosend);
 
                 reload_spi_buff();
                 //printf("\t\tsending: %d\n", tosend-1);
                 write(client_sock , spi_data+1 , (int)(tosend-1));
                
-                //if (j != runs-1)
-                //    write(WRITE0,0x00,0x00,0x00,CMD_NEXT_BUF);
-                //else 
-                //    write(WRITE0,0x00,0x00,0x00,CMD_COMPLETE);
+                if (j != runs-1)
+                    send_command(CMD_NEXT_BUF);
+                else 
+                    send_command(CMD_COMPLETE);
             }
            
         }
@@ -471,64 +474,35 @@ void doStateMachine()
     else //5 byte command
     {
         strncpy(to, client_message_comp+2, 2);
-        sscanf(to, "%x", arguments);
+        sscanf(to, "%hhx", arguments);
         strncpy(to, client_message_comp+4, 2);
-        sscanf(to, "%x", arguments+1);
+        sscanf(to, "%hhx", arguments+1);
         strncpy(to, client_message_comp+6, 2);
-        sscanf(to, "%x", arguments+2);
+        sscanf(to, "%hhx", arguments+2);
         strncpy(to, client_message_comp+8, 2);
-        sscanf(to, "%x", arguments+3);  
+        sscanf(to, "%hhx", arguments+3);  
         arg_sum = arguments[0] + 256*arguments[1] + 256*256*arguments[2] + 256*256*256*arguments[3];
         //printf("%d\n", arg_sum);
 
-        if (command == OLS_CMD_CAPTURE_SIZE)
+        if (command == CMD_CAPTURE_SIZE)
         {
             total_samples = arg_sum+1;
-            write(WRITE1,arguments[3],arguments[2],arguments[1],arguments[0]+1);
+            write_reg(0x02,arguments[3],arguments[2],arguments[1],arguments[0]+1);
             printf("\t\tsamples: %d\n", total_samples);
 
         }
-        else if (command == OLS_CMD_SET_DIVIDER)
+        else if (command == CMD_SAMPLE_RATE)
         {
             samplerate = arg_sum;   
-            write(WRITE2,arguments[3],arguments[2],arguments[1],arguments[0]);
+            write_reg(0x03,arguments[3],arguments[2],arguments[1],arguments[0]);
             printf("\t\trate: %d\n", samplerate);
         }
-        else if ((command & 0xf3) == OLS_CMD_SET_TRIGGER_MASK) {
-            stage = arguments[2];
-            trigger[stage].mask = arguments[0] + 256*arguments[1];
-
-            while (read(READ3)[4] != 0x00);
-            write(WRITE3, arguments[1],arguments[0],stage,0x01);
-
-           printf("\t\tstage: %d mask: %s\n", stage, byte_to_binary(trigger[stage].mask));
+        else  //just pass along the values and wait for a response
+        {
+            write_reg(0x01,arguments[3],arguments[2],arguments[1],arguments[0]);
+            send_command(command);
+            block_response(command);
         }
-        else if ((command & 0xf3) == OLS_CMD_SET_TRIGGER_VALUE) {
-            stage = arguments[2];
-            trigger[stage].values = arguments[0] + 256*arguments[1];
-
-            while (read(READ4)[4] != 0x00);
-            write(WRITE4,arguments[1],arguments[0],stage,0x01);
-
-            printf("\t\tstage: %d trigger: %s\n", stage, byte_to_binary(trigger[stage].values));
-        }
-         else if ((command & 0xf3) == OLS_CMD_SET_TRIGGER_CONFIG) {
-            stage = arguments[2];
-            trigger[stage].level = arguments[0];
-            trigger[stage].start = arguments[1];
-
-            while (read(READ5)[4] != 0x00);
-            write(WRITE5,arguments[1],arguments[0],stage,0x01);
-
-            printf("\t\tstage: %d lev: %d start: %d\n", stage, trigger[stage].level, trigger[stage].start);
-        }    
-        else if (command == OLS_CMD_SET_FLAGS) {
-           sampler.demux = arguments[0] & 0x01;
-           sampler.filter = (arguments[0] & 0x02) >> 1;
-           sampler.groups = (arguments[0] & 0x3C) >> 2;
-           sampler.external = (arguments[0] & 0x40) >> 6;
-           sampler.inverted = (arguments[0] & 0x80) >> 7;
-       }
     }
 }
 
@@ -560,7 +534,7 @@ int main(int argc , char *argv[])
 
        char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
 
-       if (getnameinfo(&client, c, hbuf, sizeof(hbuf), sbuf, sizeof(sbuf), NI_NUMERICHOST | NI_NUMERICSERV) == 0)
+       if (getnameinfo((struct sockaddr *)&client, c, hbuf, sizeof(hbuf), sbuf, sizeof(sbuf), NI_NUMERICHOST | NI_NUMERICSERV) == 0)
            printf("Client Connected with host=%s, serv=%s\n", hbuf, sbuf);
 
         //setsockopt(client_sock, IPPROTO_TCP, TCP_NODELAY, (char *)&value, sizeof(int));

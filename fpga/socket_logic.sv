@@ -277,7 +277,7 @@ module controller (
   always @(posedge inclk) begin   
     reg_data_spi <= reg_bank[spi_addr_reg];
     if (spi_we_reg) begin
-      reg_bank[spi_addr_reg] <= spi_data_reg;
+      reg_bank[spi_addr_reg[2:0]] <= spi_data_reg;
     end
   end
   
@@ -296,116 +296,116 @@ module controller (
       state <= `STATE_STANDBY;
       cont_cmd_fifo <= `FIFO_CLEARCOUNT;
       cont_reset_spi <= 1;
-      reg_bank[1] <= `RESP_RESET;
+      reg_bank[8] <= `RESP_RESET;
       
     end else if (reg_bank[0] == `CMD_INIT) begin
-      reg_bank[1] <= `RESP_INIT;
+      reg_bank[8] <= `RESP_INIT;
       cont_reset_spi <= 0;
       cont_command_trig <= `CMD_TRIG_HALT;
       
     end else if (reg_bank[0] == `CMD_NONE) begin
-      reg_bank[1] <= `RESP_NONE;
+      reg_bank[8] <= `RESP_NONE;
       
-    end else if (reg_bank[0] == `CMD_ARM_ON_STEP && reg_bank[1] != `RESP_ARM_ON_STEP) begin
+    end else if (reg_bank[0] == `CMD_ARM_ON_STEP && reg_bank[8] != `RESP_ARM_ON_STEP) begin
       if (cont_command_trig == `CMD_TRIG_HALT) begin
-        cont_config_trig <= reg_bank[2][23:0];
+        cont_config_trig <= reg_bank[1][23:0];
         cont_command_trig <= `CMD_TRIG_SETUP;
       end else if (cont_command_trig == `CMD_TRIG_SETUP) begin
         cont_command_trig <= `CMD_TRIG_ARM_ON_STEP;
       end else begin
         cont_command_trig <= `CMD_TRIG_HALT;
-        reg_bank[1] <= `RESP_ARM_ON_STEP;
+        reg_bank[8] <= `RESP_ARM_ON_STEP;
       end
       
-    end else if (reg_bank[0] == `CMD_SET_VALUE && reg_bank[1] != `RESP_SET_VALUE) begin
+    end else if (reg_bank[0] == `CMD_SET_VALUE && reg_bank[8] != `RESP_SET_VALUE) begin
       if (cont_command_trig == `CMD_TRIG_HALT) begin
-        cont_we_trig[reg_bank[2][31:24]] <= 1;
-        cont_config_trig <= reg_bank[2][23:0];
+        cont_we_trig[reg_bank[1][31:24]] <= 1;
+        cont_config_trig <= reg_bank[1][23:0];
         cont_command_trig <= `CMD_TRIG_SETUP;
       end else if (cont_command_trig == `CMD_TRIG_SETUP) begin
         cont_command_trig <= `CMD_TRIG_SET_VALUE;
       end else begin
         cont_command_trig <= `CMD_TRIG_HALT;
         cont_we_trig <= 0;
-        reg_bank[1] <= `RESP_SET_VALUE;
+        reg_bank[8] <= `RESP_SET_VALUE;
       end
       
-    end else if (reg_bank[0] == `CMD_SET_RANGE && reg_bank[1] != `RESP_SET_RANGE) begin
+    end else if (reg_bank[0] == `CMD_SET_RANGE && reg_bank[8] != `RESP_SET_RANGE) begin
       if (cont_command_trig == `CMD_TRIG_HALT) begin
-        cont_we_trig[reg_bank[2][31:24]] <= 1;
-        cont_config_trig <= reg_bank[2][23:0];
+        cont_we_trig[reg_bank[1][31:24]] <= 1;
+        cont_config_trig <= reg_bank[1][23:0];
         cont_command_trig <= `CMD_TRIG_SETUP;
       end else if (cont_command_trig == `CMD_TRIG_SETUP) begin
         cont_command_trig <= `CMD_TRIG_SET_RANGE;
       end else begin
         cont_command_trig <= `CMD_TRIG_HALT;
         cont_we_trig <= 0;
-        reg_bank[1] <= `RESP_SET_RANGE;
+        reg_bank[8] <= `RESP_SET_RANGE;
       end
       
-    end else if (reg_bank[0] == `CMD_SET_VMASK && reg_bank[1] != `RESP_SET_VMASK) begin
+    end else if (reg_bank[0] == `CMD_SET_VMASK && reg_bank[8] != `RESP_SET_VMASK) begin
       if (cont_command_trig == `CMD_TRIG_HALT) begin
-        cont_we_trig[reg_bank[2][31:24]] <= 1;
-        cont_config_trig <= reg_bank[2][23:0];
+        cont_we_trig[reg_bank[1][31:24]] <= 1;
+        cont_config_trig <= reg_bank[1][23:0];
         cont_command_trig <= `CMD_TRIG_SETUP;
       end else if (cont_command_trig == `CMD_TRIG_SETUP) begin
         cont_command_trig <= `CMD_TRIG_SET_VMASK;
       end else begin
         cont_command_trig <= `CMD_TRIG_HALT;
         cont_we_trig <= 0;
-        reg_bank[1] <= `RESP_SET_VMASK;
+        reg_bank[8] <= `RESP_SET_VMASK;
       end
       
-    end else if (reg_bank[0] == `CMD_SET_EDGE && reg_bank[1] != `RESP_SET_EDGE) begin
+    end else if (reg_bank[0] == `CMD_SET_EDGE && reg_bank[8] != `RESP_SET_EDGE) begin
       if (cont_command_trig == `CMD_TRIG_HALT) begin
-        cont_we_trig[reg_bank[2][31:24]] <= 1;
-        cont_config_trig <= reg_bank[2][23:0];
+        cont_we_trig[reg_bank[1][31:24]] <= 1;
+        cont_config_trig <= reg_bank[1][23:0];
         cont_command_trig <= `CMD_TRIG_SETUP;
       end else if (cont_command_trig == `CMD_TRIG_SETUP) begin
         cont_command_trig <= `CMD_TRIG_SET_EDGE;
       end else begin
         cont_command_trig <= `CMD_TRIG_HALT;
         cont_we_trig <= 0;
-        reg_bank[1] <= `RESP_SET_EDGE;
+        reg_bank[8] <= `RESP_SET_EDGE;
       end
       
-    end else if (reg_bank[0] == `CMD_SET_EMASK && reg_bank[1] != `RESP_SET_EMASK) begin
+    end else if (reg_bank[0] == `CMD_SET_EMASK && reg_bank[8] != `RESP_SET_EMASK) begin
       if (cont_command_trig == `CMD_TRIG_HALT) begin
-        cont_we_trig[reg_bank[2][31:24]] <= 1;
-        cont_config_trig <= reg_bank[2][23:0];
+        cont_we_trig[reg_bank[1][31:24]] <= 1;
+        cont_config_trig <= reg_bank[1][23:0];
         cont_command_trig <= `CMD_TRIG_SETUP;
       end else if (cont_command_trig == `CMD_TRIG_SETUP) begin
         cont_command_trig <= `CMD_TRIG_SET_EMASK;
       end else begin
         cont_command_trig <= `CMD_TRIG_HALT;
         cont_we_trig <= 0;
-        reg_bank[1] <= `RESP_SET_EMASK;
+        reg_bank[8] <= `RESP_SET_EMASK;
       end
       
-    end else if (reg_bank[0] == `CMD_SET_CONFIG && reg_bank[1] != `RESP_SET_CONFIG) begin
+    end else if (reg_bank[0] == `CMD_SET_CONFIG && reg_bank[8] != `RESP_SET_CONFIG) begin
       if (cont_command_trig == `CMD_TRIG_HALT) begin
-        cont_we_trig[reg_bank[2][31:24]] <= 1;
-        cont_config_trig <= reg_bank[2][23:0];
+        cont_we_trig[reg_bank[1][31:24]] <= 1;
+        cont_config_trig <= reg_bank[1][23:0];
         cont_command_trig <= `CMD_TRIG_SETUP;
       end else if (cont_command_trig == `CMD_TRIG_SETUP) begin
         cont_command_trig <= `CMD_TRIG_SET_CONFIG;
       end else begin
         cont_command_trig <= `CMD_TRIG_HALT;
         cont_we_trig <= 0;
-        reg_bank[1] <= `RESP_SET_CONFIG;
+        reg_bank[8] <= `RESP_SET_CONFIG;
       end
       
-    end else if (reg_bank[0] == `CMD_SET_SERIALOPTS && reg_bank[1] != `RESP_SET_SERIALOPTS) begin
+    end else if (reg_bank[0] == `CMD_SET_SERIALOPTS && reg_bank[8] != `RESP_SET_SERIALOPTS) begin
       if (cont_command_trig == `CMD_TRIG_HALT) begin
-        cont_we_trig[reg_bank[2][31:24]] <= 1;
-        cont_config_trig <= reg_bank[2][23:0];
+        cont_we_trig[reg_bank[1][31:24]] <= 1;
+        cont_config_trig <= reg_bank[1][23:0];
         cont_command_trig <= `CMD_TRIG_SETUP;
       end else if (cont_command_trig == `CMD_TRIG_SETUP) begin
         cont_command_trig <= `CMD_TRIG_SET_SERIALOPTS;
       end else begin
         cont_command_trig <= `CMD_TRIG_HALT;
         cont_we_trig <= 0;
-        reg_bank[1] <= `RESP_SET_SERIALOPTS;
+        reg_bank[8] <= `RESP_SET_SERIALOPTS;
       end
       
     end else if (`STATE_STANDBY == state) begin
@@ -423,7 +423,7 @@ module controller (
         state <= `STATE_ACQUIRE;
         cont_cmd_fifo <= `FIFO_ACQ;
         cont_we_tx <= 0;
-        reg_bank[1] <= `RESP_ACQ;
+        reg_bank[8] <= `RESP_ACQ;
         counter <= 0;
       end
       last <= inport;
@@ -435,9 +435,9 @@ module controller (
         cont_cmd_fifo <= `FIFO_CLEARCOUNT;
         cont_we_tx <= 1;
         cont_addr_tx <= 0;
-        reg_bank[1] <= `RESP_FIFO_TX;
-        reg_bank[2] <= 16;
-        reg_bank[3] <= `FIFO_ADDR_WIDTH;
+        reg_bank[8] <= `RESP_FIFO_TX;
+        reg_bank[9] <= 16;
+        reg_bank[10] <= `FIFO_ADDR_WIDTH;
         counter <= 0;
       end else begin
         counter <= counter + 1;
@@ -457,7 +457,7 @@ module controller (
         state <= `STATE_WAIT_SPI;
         cont_cmd_fifo <= `FIFO_STANDBY;
         cont_we_tx <= 0;
-        reg_bank[1] = `RESP_WAITING;
+        reg_bank[8] = `RESP_WAITING;
       end else begin
         cont_addr_tx <= cont_addr_tx + 1;
       end
@@ -468,12 +468,12 @@ module controller (
         cont_cmd_fifo <= `FIFO_READOUT;
         cont_we_tx <= 1;
         cont_addr_tx <= 0;
-        reg_bank[1] = `RESP_FIFO_TX;
-        reg_bank[2] = 16;
-        reg_bank[3] = `FIFO_ADDR_WIDTH;
+        reg_bank[8] = `RESP_FIFO_TX;
+        reg_bank[9] = 16;
+        reg_bank[10] = `FIFO_ADDR_WIDTH;
       end else if (reg_bank[0] == `CMD_COMPLETE) begin
         state <= `STATE_STANDBY;
-        reg_bank[1] <=  `RESP_DONE;
+        reg_bank[8] <=  `RESP_DONE;
         cont_cmd_fifo <= `FIFO_CLEARCOUNT;
         cont_we_tx <= 0;
       end
