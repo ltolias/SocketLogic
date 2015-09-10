@@ -487,7 +487,7 @@ void doStateMachine()
         if (command == CMD_CAPTURE_SIZE)
         {
             total_samples = arg_sum+1;
-            write_reg(0x02,arguments[3],arguments[2],arguments[1],arguments[0]+1);
+            write_reg(0x02,arguments[3],arguments[2],arguments[1],arguments[0]);
             printf("\t\tsamples: %d\n", total_samples);
 
         }

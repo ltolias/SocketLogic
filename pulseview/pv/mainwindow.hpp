@@ -63,7 +63,7 @@ public:
 		QWidget *parent = 0);
 
 	void run_stop();
-
+	void trigger();
 	void select_device(std::shared_ptr<sigrok::Device> device);
 
 private:

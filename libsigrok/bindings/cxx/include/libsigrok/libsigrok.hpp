@@ -472,7 +472,6 @@ public:
 	vector<shared_ptr<TriggerStage> > stages();
 	/** Add a new stage to this trigger. */
 	shared_ptr<TriggerStage> add_stage();
-	shared_ptr<TriggerStage> add_stage_socket_logic(struct sr_socket_logic_trigger_stage_config *sltsc);
 protected:
 	Trigger(shared_ptr<Context> context, string name);
 	~Trigger();
@@ -669,6 +668,7 @@ public:
 	/** Set trigger setting.
 	 * @param trigger Trigger object to use. */
 	void set_trigger(shared_ptr<Trigger> trigger);
+	void dev_set_trigger(void *trig);
 	/** Get filename this session was loaded from. */
 	string filename();
 protected:

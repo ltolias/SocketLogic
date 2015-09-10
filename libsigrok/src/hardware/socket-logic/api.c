@@ -18,7 +18,6 @@
  */
 
 #include "protocol.h"
-#include <libserialport.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -107,12 +106,12 @@ static GSList *scan(GSList *options)
 	struct drv_context *drvc;
 	struct dev_context *devc;
 	struct sr_channel *ch;
-	struct scpi_tcp *tcp;
-	struct sr_channel_group *lcg0, *lcg1, *acg;
+	struct tcp_socket *tcp;
+	//struct sr_channel_group *lcg0, *lcg1, *acg;
 	GSList *l, *devices;
 	int ret, i;
 	const char *conn, *serialcomm;
-	unsigned char buf[8];
+	char buf[8];
 
 	drvc = di->priv;
 
@@ -133,19 +132,11 @@ static GSList *scan(GSList *options)
 	if (!conn)
 		return NULL;
 
-
-
-	//if (serialcomm == NULL)
-	
-
-	/*if (!(serial = sr_serial_dev_inst_new(conn, serialcomm)))
-		return NULL;*/
-
-	if (!(tcp = g_try_malloc(sizeof(struct scpi_tcp)))) {
+	if (!(tcp = g_try_malloc(sizeof(struct tcp_socket)))) {
             sr_err("hwdriver: %s: tcp malloc failed", __func__);
           return NULL;
 	}
-	//printf("conn: %s\n",conn);
+	
 	int len = strlen(conn);
 	char to[17] = "ff";
     strncpy(to, conn, len-5);
@@ -153,55 +144,41 @@ static GSList *scan(GSList *options)
 	tcp->address = g_strdup(to);
 	strncpy(to, conn+len-4, 4);
 	to[4] = '\0';
-	tcp->port    = g_strdup(to);
+	tcp->port = g_strdup(to);
 	tcp->socket  = -1;
 
-	/* The discovery procedure is like this: first send the Reset
-	 * command (0x00) 5 times, since the device could be anywhere
-	 * in a 5-byte command. Then send the ID command (0x02).
-	 * If the device responds with 4 bytes ("socket_logic1" or "SLA1"), we
-	 * have a match.
-	 */
 	sr_info("Probing %s.", serialcomm);
-	if (scpi_tcp_open(tcp) != SR_OK)
+	if (tcp_open(tcp) != SR_OK)
 		return NULL;
-	
+
 	ret = SR_OK;
 	for (i = 0; i < 5; i++) {
 		if ((ret = socket_logic_send_shortcommand(tcp, CMD_RESET)) != SR_OK) {
 			sr_err("Port %s is not writable.", serialcomm);
 			break;
 		}
-		scpi_tcp_close(tcp);
-		scpi_tcp_open(tcp);
 	}
 	if (ret != SR_OK) {
-		scpi_tcp_close(tcp);
 		sr_err("Could not use port %s. Quitting.", serialcomm);
 		return NULL;
 	}
 	socket_logic_send_shortcommand(tcp, CMD_ID);
-
 			
 	g_usleep(RESPONSE_DELAY_US);
 
-
-	ret = scpi_tcp_raw_read_data(tcp, buf, 4);
-	scpi_tcp_close(tcp);
+	ret = tcp_raw_read_data(tcp, (unsigned char*)buf, 4);
+	tcp_close(tcp);
 	if (ret != 4) {
 		sr_err("Invalid reply (expected 4 bytes, got %d).", ret);
 		return NULL;
 	}
 
-	if (strncmp(buf, "1SLO", 4) && strncmp(buf, "1ALS", 4)) {
-		sr_err("Invalid reply (expected '1SLO' or '1ALS', got "
-		       "'%c%c%c%c').", buf[0], buf[1], buf[2], buf[3]);
+	if (strncmp(&buf[0], "SKLO", 4)) {
+		sr_err("Invalid reply (expected 'SKLO', got '%c%c%c%c').", buf[0], buf[1], buf[2], buf[3]);
 		return NULL;
 	}
 
-
-	/* Not an OLS -- some other board that uses the sump protocol. */
-	sr_info("Device does not support metadata.");
+	sr_info("Found a SocketLogic");
 	sdi = sr_dev_inst_new();
 	sdi->status = SR_ST_INACTIVE;
 	sdi->vendor = g_strdup("Tolias");
@@ -221,18 +198,11 @@ static GSList *scan(GSList *options)
 	devc = socket_logic_dev_new();
 	sdi->priv = devc;
 
-
-	/* Configure samplerate and divider. */
-	if (socket_logic_set_samplerate(sdi, DEFAULT_SAMPLERATE) != SR_OK)
-		sr_dbg("Failed to set default samplerate (%"PRIu64").",
-				DEFAULT_SAMPLERATE);
 	sdi->inst_type = SR_INST_SERIAL;
 	sdi->conn = tcp;
 
 	drvc->instances = g_slist_append(drvc->instances, sdi);
 	devices = g_slist_append(devices, sdi);
-
-	
 
 	return devices;
 }
@@ -258,8 +228,6 @@ static int dev_clear(void)
 {
 	return std_dev_clear(di, clear_dev_context);
 }
-
-
 
 static int cleanup(void)
 {
@@ -323,7 +291,6 @@ static int config_set(uint32_t key, GVariant *data, const struct sr_dev_inst *sd
 {
 	struct dev_context *devc;
 	uint64_t tmp_u64;
-	uint16_t tmp_u16;
 	int32_t tmp_32;
 	int ret = SR_OK;
 	const char *tmp_str;
@@ -341,7 +308,6 @@ static int config_set(uint32_t key, GVariant *data, const struct sr_dev_inst *sd
 		if (tmp_u64 < samplerates[0] || tmp_u64 > samplerates[1])
 			return SR_ERR_SAMPLERATE;
 		devc->cur_samplerate = tmp_u64;
-		ret = socket_logic_set_samplerate(sdi, g_variant_get_uint64(data));
 		break;
 	case SR_CONF_LIMIT_SAMPLES:
 		tmp_u64 = g_variant_get_uint64(data);
@@ -352,11 +318,9 @@ static int config_set(uint32_t key, GVariant *data, const struct sr_dev_inst *sd
 		break;
 	case SR_CONF_CAPTURE_RATIO:
 		devc->capture_ratio = g_variant_get_uint64(data);
-		if (devc->capture_ratio < 0 || devc->capture_ratio > 100) {
-			devc->capture_ratio = 0;
-			ret = SR_ERR;
-		} else
-			ret = SR_OK;
+		if (devc->capture_ratio > 100) 
+			devc->capture_ratio = 100;
+		ret = SR_OK;
 		break;
 	case SR_CONF_DEVICE_MODE:
 		tmp_str = g_variant_get_string(data, NULL);
@@ -530,38 +494,84 @@ static int config_list(uint32_t key, GVariant **data, const struct sr_dev_inst *
 	return SR_OK;
 }
 
-static int set_trigger(const struct sr_dev_inst *sdi, int stage)
+static int set_trigger(const struct sr_dev_inst *sdi)
 {
+
 	struct dev_context *devc;
-	struct scpi_tcp *tcp;
+	struct tcp_socket *tcp;
 	uint8_t cmd, arg[4];
 
 	devc = sdi->priv;
 	tcp = sdi->conn;
 
-	cmd = CMD_SET_TRIGGER_MASK;
-	arg[0] = devc->trigger_mask[stage] & 0xff;
-	arg[1] = (devc->trigger_mask[stage] >> 8) & 0xff;
-	arg[2] = stage & 0xff;
+	cmd = CMD_ARM_ON_STEP;
 	arg[3] = 0x00;
+	arg[2] = 0x00;
+	arg[1] = 0x00;
+	arg[0] = (devc->trigger->trigger_on & 0xff);
 	if (socket_logic_send_longcommand(tcp, cmd, arg) != SR_OK)
 		return SR_ERR;
 
-	cmd = CMD_SET_TRIGGER_VALUE;
-	arg[0] = devc->trigger_value[stage] & 0xff;
-	arg[1] = (devc->trigger_value[stage] >> 8) & 0xff;
-	arg[2] = stage & 0xff;
-	arg[3] = 0x00;
-	if (socket_logic_send_longcommand(tcp, cmd, arg) != SR_OK)
-		return SR_ERR;
+	uint8_t stage;
+	for (stage=0;stage<devc->trigger->num_stages;stage++)
+	{
+		struct trigger_stage_config *curr_stage = &(devc->trigger->stages[stage]);
+		cmd = CMD_SET_VALUE;
+		arg[3] = curr_stage->repetitions & 0xff;
+		arg[2] = (curr_stage->value & 0xff);
+		arg[1] = (curr_stage->value & 0xff00) >> 8;
+		arg[0] = stage;
+		if (socket_logic_send_longcommand(tcp, cmd, arg) != SR_OK)
+			return SR_ERR;
 
-	cmd = CMD_SET_TRIGGER_CONFIG;
-	arg[0] = 0x00;
-	arg[1] = (devc->trigger_at & 0xff);
-	arg[2] = stage & 0xff;
-	arg[3] = 0x00;
-	if (socket_logic_send_longcommand(tcp, cmd, arg) != SR_OK)
-		return SR_ERR;
+		cmd = CMD_SET_RANGE;
+		arg[3] = 0x00;
+		arg[2] = (curr_stage->range & 0xff);
+		arg[1] = (curr_stage->range & 0xff00) >> 8;
+		arg[0] = stage;
+		if (socket_logic_send_longcommand(tcp, cmd, arg) != SR_OK)
+			return SR_ERR;
+
+		cmd = CMD_SET_VMASK;
+		arg[3] = curr_stage->arm_on_step & 0xff;
+		arg[2] = (curr_stage->vmask & 0xff);
+		arg[1] = (curr_stage->vmask & 0xff00) >> 8;
+		arg[0] = stage;
+		if (socket_logic_send_longcommand(tcp, cmd, arg) != SR_OK)
+			return SR_ERR;
+
+		cmd = CMD_SET_EDGE;
+		arg[3] = 0x00;
+		arg[2] = (curr_stage->edge & 0xff);
+		arg[1] = (curr_stage->edge & 0xff00) >> 8;
+		arg[0] = stage;
+		if (socket_logic_send_longcommand(tcp, cmd, arg) != SR_OK)
+			return SR_ERR;
+
+		cmd = CMD_SET_EMASK;
+		arg[3] = 0x00;
+		arg[2] = (curr_stage->emask & 0xff);
+		arg[1] = (curr_stage->emask & 0xff00) >> 8;
+		arg[0] = stage;
+		if (socket_logic_send_longcommand(tcp, cmd, arg) != SR_OK)
+			return SR_ERR;
+
+		cmd = CMD_SET_CONFIG;
+		arg[3] = ((curr_stage->format & 0x03) << 6);
+		arg[2] = (curr_stage->delay & 0xff);
+		arg[1] = (curr_stage->delay & 0xff00) >> 8;
+		arg[0] = stage;
+		if (socket_logic_send_longcommand(tcp, cmd, arg) != SR_OK)
+			return SR_ERR;
+
+		cmd = CMD_SET_SERIALOPTS;
+		arg[3] = (curr_stage->cycle_delay & 0xff);
+		arg[2] = ((curr_stage->cycle_delay & 0x10) >> 4);
+		arg[1] = ((curr_stage->data_ch & 0xf) << 4) | (curr_stage->clock_ch & 0xf);
+		arg[0] = stage;
+		if (socket_logic_send_longcommand(tcp, cmd, arg) != SR_OK)
+			return SR_ERR;
+	}
 
 	return SR_OK;
 }
@@ -570,10 +580,9 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi,
 		void *cb_data)
 {
 	struct dev_context *devc;
-	struct scpi_tcp *tcp;
-	uint32_t samplecount, readcount, delaycount;
+	struct tcp_socket *tcp;
+	uint32_t readcount, precount, postcount;
 	uint8_t arg[4];
-	int ret, i;
 
 	if (sdi->status != SR_ST_ACTIVE)
 		return SR_ERR_DEV_CLOSED;
@@ -583,84 +592,45 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi,
 
 	socket_logic_channel_mask(sdi);
 
-	/*num_socket_logic_changrp = 0;
-	socket_logic_changrp_mask = 0;
-	for (i = 0; i < 4; i++) {
-		if (devc->channel_mask & (0xff << (i * 8))) {
-			socket_logic_changrp_mask |= (1 << i);
-			num_socket_logic_changrp++;
-		}
-	}*/
+	readcount = devc->limit_samples;
+	precount = (int)(readcount * (1 - devc->capture_ratio / 100.0));
+	postcount = readcount - precount;
 
-	/*
-	 * Limit readcount to prevent reading past the end of the hardware
-	 * buffer.
-	 */
-	samplecount = devc->limit_samples;//MIN(devc->max_samples / num_socket_logic_changrp, devc->limit_samples);
-	readcount = samplecount;
+	set_trigger(sdi);
 
-	/* Rather read too many samples than too few. */
-
-	/* Basic triggers. */
-	if (socket_logic_convert_trigger(sdi) != SR_OK) {
-		sr_err("Failed to configure channels.");
-		return SR_ERR;
-	}
-	if (devc->num_stages > 0) {
-		delaycount = readcount * (1 - devc->capture_ratio / 100.0);
-		devc->trigger_at = (readcount - delaycount) * 2 - devc->num_stages;
-		for (i = 0; i <= devc->num_stages; i++) {
-			sr_dbg("Setting socket_logic stage %d trigger.", i);
-			if ((ret = set_trigger(sdi, i)) != SR_OK)
-				return ret;
-		}
-	} else {
-		/* No triggers configured, force trigger on first stage. */
-		sr_dbg("Forcing trigger at stage 0.");
-		if ((ret = set_trigger(sdi, 0)) != SR_OK)
-			return ret;
-		delaycount = readcount;
-	}
-
-	/* Samplerate. */
+	/// Send samplerate.
 	sr_dbg("Setting samplerate to %" PRIu64 "Hz (divider %u)",
 			devc->cur_samplerate, devc->cur_samplerate_divider);
 	arg[0] = devc->cur_samplerate & 0xff;
 	arg[1] = (devc->cur_samplerate & 0xff00) >> 8;
 	arg[2] = (devc->cur_samplerate & 0xff0000) >> 16;
 	arg[3] = (devc->cur_samplerate & 0xff000000) >> 24;
-	if (socket_logic_send_longcommand(tcp, CMD_SET_DIVIDER, arg) != SR_OK)
+	if (socket_logic_send_longcommand(tcp, CMD_SAMPLE_RATE, arg) != SR_OK)
 		return SR_ERR;
 
-	/* Send sample limit and pre/post-trigger capture ratio. */
-	sr_dbg("Setting sample limit %d, trigger point at %d",
-			(readcount - 1) * 4, (delaycount - 1) * 4);
-	arg[0] = ((readcount - 1) & 0xff);
-	arg[1] = ((readcount - 1) & 0xff00) >> 8;
-	arg[2] = ((readcount - 1) & 0xff0000) >> 16;
-	arg[3] = ((readcount - 1) & 0xff000000) >> 24;
-	if (socket_logic_send_longcommand(tcp, CMD_CAPTURE_SIZE, arg) != SR_OK)
+	// Send sample limit and pre/post-trigger capture ratio. 
+	sr_dbg("Setting precount %d, and postcount %d",
+			precount, postcount);
+	arg[0] = ((precount - 1) & 0xff);
+	arg[1] = ((precount - 1) & 0xff00) >> 8;
+	arg[2] = ((precount - 1) & 0xff0000) >> 16;
+	arg[3] = ((precount - 1) & 0xff000000) >> 24;
+	if (socket_logic_send_longcommand(tcp, CMD_SET_PRECOUNT, arg) != SR_OK)
 		return SR_ERR;
 
-	/* Flag register. */
-	sr_dbg("Setting flag register");
-	/*
-	 * Enable/disable socketlogic channel groups in the flag register according
-	 * to the channel mask. 1 means "disable channel".
-	 */
-	//arg[0] = devc->device_mode & 0xff;
-	arg[0] = 0x00;
-	arg[1] = ((readcount - 1) & 0xff00) >> 8;
-	arg[2] = ((readcount - 1) & 0xff0000) >> 16;
-	arg[3] = ((readcount - 1) & 0xff000000) >> 24;
-	if (socket_logic_send_longcommand(tcp, CMD_SET_FLAGS, arg) != SR_OK)
+	arg[0] = ((postcount - 1) & 0xff);
+	arg[1] = ((postcount - 1) & 0xff00) >> 8;
+	arg[2] = ((postcount - 1) & 0xff0000) >> 16;
+	arg[3] = ((postcount - 1) & 0xff000000) >> 24;
+	if (socket_logic_send_longcommand(tcp, CMD_SET_POSTCOUNT, arg) != SR_OK)
 		return SR_ERR;
 
-	/* Start acquisition on the device. */
-	if (socket_logic_send_shortcommand(tcp, CMD_RUN) != SR_OK)
+	
+	// Start acquisition on the device. 
+	if (socket_logic_send_shortcommand(tcp, CMD_WAIT_TRIGGER) != SR_OK)
 		return SR_ERR;
 
-	/* Reset all operational states. */
+	// Reset all operational states. 
 	devc->stopped = 0;
 	devc->num_transfers = 0;
 	devc->num_samples = devc->num_bytes = devc->num_frames = 0;
@@ -668,11 +638,11 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi,
 	memset(devc->sample, 0, 2);
 
 	
-	/* Send header packet to the session bus. */
+	// Send header packet to the session bus. 
 	std_session_send_df_header(cb_data, LOG_PREFIX);
 
 
-	scpi_tcp_source_add(sdi->session, tcp, G_IO_IN, -1,
+	tcp_source_add(sdi->session, tcp, G_IO_IN, -1,
 				socket_logic_receive_data, cb_data);
 
 	return SR_OK;
@@ -689,10 +659,10 @@ static int dev_acquisition_stop(struct sr_dev_inst *sdi, void *cb_data)
 
 static int tcp_dev_open(struct sr_dev_inst *sdi)
 {
-	struct scpi_tcp *tcp;
+	struct tcp_socket *tcp;
 
 	tcp = sdi->conn;
-	if (scpi_tcp_open(tcp) != SR_OK)
+	if (tcp_open(tcp) != SR_OK)
 		return SR_ERR;
 
 	sdi->status = SR_ST_ACTIVE;
@@ -700,20 +670,37 @@ static int tcp_dev_open(struct sr_dev_inst *sdi)
 	return SR_OK;
 }
 
-
 static int tcp_dev_close(struct sr_dev_inst *sdi)
 {
-	struct scpi_tcp *tcp;
+	struct tcp_socket *tcp;
 
 	tcp = sdi->conn;
 	if (tcp && sdi->status == SR_ST_ACTIVE) {
-		scpi_tcp_close(tcp);
+		tcp_close(tcp);
 		sdi->status = SR_ST_INACTIVE;
 	}
 
 	return SR_OK;
 }
 
+static int dev_trigger_set(struct sr_dev_inst *sdi, void *trig)
+{
+	struct dev_context *devc;
+
+	if (sdi->status != SR_ST_ACTIVE)
+		return SR_ERR_DEV_CLOSED;
+
+	devc = sdi->priv;
+
+	if (devc->trigger != NULL)
+	{
+		g_free(devc->trigger->stages);
+	}
+	g_free(devc->trigger);
+	devc->trigger = (struct trigger_config *) trig;
+
+	return SR_OK;
+}
 
 SR_PRIV struct sr_dev_driver socket_logic_driver_info = {
 	.name = "socket-logic",
@@ -731,5 +718,6 @@ SR_PRIV struct sr_dev_driver socket_logic_driver_info = {
 	.dev_close = tcp_dev_close,
 	.dev_acquisition_start = dev_acquisition_start,
 	.dev_acquisition_stop = dev_acquisition_stop,
+	.dev_trigger_set = dev_trigger_set,
 	.priv = NULL,
 };

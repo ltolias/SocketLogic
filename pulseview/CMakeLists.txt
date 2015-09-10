@@ -158,6 +158,7 @@ set(pulseview_SOURCES
 	pv/dialogs/about.cpp
 	pv/dialogs/connect.cpp
 	pv/dialogs/storeprogress.cpp
+	pv/dialogs/trigger.cpp
 	pv/popups/deviceoptions.cpp
 	pv/popups/channels.cpp
 	pv/prop/bool.cpp
@@ -205,6 +206,7 @@ set(pulseview_HEADERS
 	pv/dialogs/about.hpp
 	pv/dialogs/connect.hpp
 	pv/dialogs/storeprogress.hpp
+	pv/dialogs/trigger.hpp
 	pv/popups/channels.hpp
 	pv/popups/deviceoptions.hpp
 	pv/prop/bool.hpp

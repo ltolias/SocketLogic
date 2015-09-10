@@ -86,6 +86,7 @@ private Q_SLOTS:
 	void on_sample_count_changed();
 	void on_sample_rate_changed();
 	void on_run_stop();
+	void on_trigger();
 
 	void on_config_changed();
 
@@ -115,6 +116,8 @@ private:
 	QIcon icon_green_;
 	QIcon icon_grey_;
 	QToolButton run_stop_button_;
+	QToolButton trigger_button_;
+	QAction *trigger_button_action_;
 };
 
 } // namespace toolbars

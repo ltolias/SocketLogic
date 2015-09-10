@@ -75,7 +75,9 @@ SamplingBar::SamplingBar(Session &session, MainWindow &main_window) :
 	icon_red_(":/icons/status-red.svg"),
 	icon_green_(":/icons/status-green.svg"),
 	icon_grey_(":/icons/status-grey.svg"),
-	run_stop_button_(this)
+	run_stop_button_(this),
+	trigger_button_(this),
+	trigger_button_action_(nullptr)
 {
 	setObjectName(QString::fromUtf8("SamplingBar"));
 
@@ -87,6 +89,14 @@ SamplingBar::SamplingBar(Session &session, MainWindow &main_window) :
 		this, SLOT(on_sample_count_changed()));
 	connect(&sample_rate_, SIGNAL(value_changed()),
 		this, SLOT(on_sample_rate_changed()));
+
+	connect(&trigger_button_, SIGNAL(clicked()),
+		this, SLOT(on_trigger()));
+
+	trigger_button_.setIcon(QIcon::fromTheme("configure",
+		QIcon(":/icons/configure.png")));
+
+
 
 	sample_count_.show_min_max_step(0, UINT64_MAX, 1);
 
@@ -107,6 +117,7 @@ SamplingBar::SamplingBar(Session &session, MainWindow &main_window) :
 	addWidget(&sample_rate_);
 
 	addWidget(&run_stop_button_);
+	trigger_button_action_ = addWidget(&trigger_button_);
 
 	sample_count_.installEventFilter(this);
 	sample_rate_.installEventFilter(this);
@@ -459,6 +470,13 @@ void SamplingBar::on_run_stop()
 	commit_sample_rate();	
 	main_window_.run_stop();
 }
+void SamplingBar::on_trigger()
+{
+	//commit_sample_count();
+	//commit_sample_rate();	
+	main_window_.trigger();
+}
+
 
 void SamplingBar::on_config_changed()
 {

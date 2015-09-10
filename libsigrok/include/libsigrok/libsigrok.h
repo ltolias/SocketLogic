@@ -363,21 +363,12 @@ struct sr_trigger {
 	GSList *stages;
 };
 
-struct sr_socket_logic_trigger_stage_config {
-	uint16_t delay;
-	uint8_t repeat;
-	uint8_t data_ch;
-	uint8_t clock_ch;
-	uint8_t cycle_delay;
-	uint8_t format;
-	uint8_t range;
-};
+
 
 /** A trigger stage. */
 struct sr_trigger_stage {
 	/** Starts at 0. */
 	int stage;
-	struct sr_socket_logic_trigger_stage_config sl_cfg;
 	/** List of pointers to struct sr_trigger_match. */
 	GSList *matches;
 };
@@ -1003,7 +994,9 @@ struct sr_dev_driver {
 	/** End data acquisition on the specified device. */
 	int (*dev_acquisition_stop) (struct sr_dev_inst *sdi,
 			void *cb_data);
-
+	/** Set trigger on the specified device. */
+	int (*dev_trigger_set) (struct sr_dev_inst *sdi,
+			void *trig);
 	/* Dynamic */
 	/** Device driver private data. Initialized by init(). */
 	void *priv;

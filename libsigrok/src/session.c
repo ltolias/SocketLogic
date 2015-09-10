@@ -330,6 +330,54 @@ SR_API int sr_session_trigger_set(struct sr_session *session, struct sr_trigger 
 	return SR_OK;
 }
 
+SR_API int sr_session_dev_trigger_set(struct sr_session *session, void *trig)
+{
+	struct sr_dev_inst *sdi;
+	struct sr_channel *ch;
+	GSList *l, *c;
+	int enabled_channels, ret;
+
+	if (!session) {
+		sr_err("%s: session was NULL", __func__);
+		return SR_ERR_ARG;
+	}
+
+	if (!session->devs) {
+		sr_err("%s: session->devs was NULL; a session "
+		       "cannot set dev trigger without devices.", __func__);
+		return SR_ERR_ARG;
+	}
+
+	ret = SR_OK;
+	for (l = session->devs; l; l = l->next) {
+		sdi = l->data;
+		enabled_channels = 0;
+		for (c = sdi->channels; c; c = c->next) {
+			ch = c->data;
+			if (ch->enabled) {
+				enabled_channels++;
+				break;
+			}
+		}
+		if (enabled_channels == 0) {
+			ret = SR_ERR;
+			sr_err("%s using connection %s has no enabled channels!",
+					sdi->driver->name, sdi->connection_id);
+			break;
+		}
+
+		if ((ret = sdi->driver->dev_trigger_set(sdi, trig)) != SR_OK) {
+			sr_err("%s: could not set trigger "
+			       "(%s)", __func__, sr_strerror(ret));
+			break;
+		}
+	}
+
+	/* TODO: What if there are multiple devices? Which return code? */
+
+	return ret;
+}
+
 /**
  * Call every device in the current session's callback.
  *

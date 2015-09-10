@@ -20,54 +20,80 @@
 #ifndef LIBSIGROK_HARDWARE_OPENBENCH_LOGIC_SNIFFER_PROTOCOL_H
 #define LIBSIGROK_HARDWARE_OPENBENCH_LOGIC_SNIFFER_PROTOCOL_H
 
-#include <stdint.h>
-#include <string.h>
-#include <glib.h>
+
 #include "libsigrok.h"
 #include "libsigrok-internal.h"
 
+#include <stdint.h>
+#include <string.h>
+#include <glib.h>
+
+#include <unistd.h>
+#include <errno.h>
 
 #ifdef _WIN32
 #define _WIN32_WINNT 0x0501
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #endif
-#include <glib.h>
-#include <string.h>
-#include <unistd.h>
 #ifndef _WIN32
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #endif
-#include <errno.h>
-#include "libsigrok.h"
-#include "libsigrok-internal.h"
+
 
 #define LOG_PREFIX "socket-logic"
 
- #define RESPONSE_DELAY_US 1000000
+#define RESPONSE_DELAY_US 2000000
 
-#define NUM_CHANNELS             18
-#define NUM_TRIGGER_STAGES     8
-#define SERIAL_SPEED           B115200
-#define CLOCK_RATE             SR_MHZ(100)
-#define MIN_NUM_SAMPLES        4
-#define DEFAULT_SAMPLERATE     SR_KHZ(200)
+#define NUM_CHANNELS		18
+#define NUM_TRIGGER_STAGES	8
+#define CLOCK_RATE			SR_MHZ(100)
+#define MIN_NUM_SAMPLES		4
+#define DEFAULT_SAMPLERATE	SR_KHZ(200)
 
 /* Command opcodes */
-#define CMD_RESET                  0x00
-#define CMD_RUN                    0x01
-#define CMD_TESTMODE               0x03
-#define CMD_ID                     0x02
-#define CMD_METADATA               0x04
-#define CMD_SET_FLAGS              0x82
-#define CMD_SET_DIVIDER            0x80
-#define CMD_CAPTURE_SIZE           0x81
-#define CMD_SET_TRIGGER_MASK       0xc0
-#define CMD_SET_TRIGGER_VALUE      0xc1
-#define CMD_SET_TRIGGER_CONFIG     0xc2
+#define CMD_RESET           0
+#define CMD_INIT            1
+#define CMD_NONE            2
+#define CMD_WAIT_TRIGGER    3
+#define CMD_NEXT_BUF        4
+#define CMD_COMPLETE        5
+#define CMD_ID              6
+
+#define CMD_ARM_ON_STEP     7
+#define CMD_SET_VALUE       8
+#define CMD_SET_RANGE       9
+#define CMD_SET_VMASK       10
+#define CMD_SET_EDGE        11
+#define CMD_SET_EMASK       12
+#define CMD_SET_CONFIG      13
+#define CMD_SET_SERIALOPTS  14
+#define CMD_SET_POSTCOUNT   15
+#define CMD_SAMPLE_RATE     16
+#define CMD_SET_PRECOUNT	17
+
+#define RESP_RESET          0
+#define RESP_INIT           1
+#define RESP_NONE           2
+#define RESP_ACQ            3
+#define RESP_FIFO_TX        4
+#define RESP_WAITING        5
+#define RESP_DONE           6
+
+#define RESP_ARM_ON_STEP    7
+#define RESP_SET_VALUE      8
+#define RESP_SET_RANGE      9
+#define RESP_SET_VMASK      10
+#define RESP_SET_EDGE       11
+#define RESP_SET_EMASK      12
+#define RESP_SET_CONFIG     13
+#define RESP_SET_SERIALOPTS 14
+#define RESP_SET_POSTCOUNT  15
+#define RESP_SAMPLE_RATE    16
+#define RESP_SET_PRECOUNT	17
 
 /* Trigger config */
 #define TRIGGER_START              (1 << 3)
@@ -88,7 +114,7 @@
 #define FLAG_DEMUX                 (1 << 0)
 
 #define LENGTH_BYTES 4
- struct scpi_tcp {
+ struct tcp_socket {
 	char *address;
 	char *port;
 	int socket;
@@ -96,6 +122,27 @@
 	int length_bytes_read;
 	int response_length;
 	int response_bytes_read;
+};
+
+struct trigger_config {
+	uint8_t trigger_on;
+	struct trigger_stage_config *stages;
+	uint8_t num_stages;
+};
+
+struct trigger_stage_config {
+	uint8_t arm_on_step;
+	uint16_t value;
+	uint16_t range;
+	uint16_t vmask;
+	uint16_t edge;
+	uint16_t emask;
+	uint16_t delay;
+	uint8_t repetitions;
+	uint8_t data_ch;
+	uint8_t clock_ch;
+	uint8_t cycle_delay;
+	uint8_t format;
 };
 
 
@@ -113,10 +160,7 @@ struct dev_context {
 	uint64_t limit_samples;
 	uint64_t limit_frames;
 	uint64_t capture_ratio;
-	int trigger_at;
-	uint16_t trigger_mask[NUM_TRIGGER_STAGES];
-	uint16_t trigger_value[NUM_TRIGGER_STAGES];
-	int num_stages;
+
 	uint16_t flag_reg;
 	uint16_t device_mode;
 	uint64_t timebase;
@@ -128,6 +172,8 @@ struct dev_context {
 	GSList *analog_channels;
 	GSList *logic_channels;
 
+	struct trigger_config *trigger;
+
 	/* Operational states */
 	unsigned int num_transfers;
 	unsigned int num_samples;
@@ -135,6 +181,8 @@ struct dev_context {
 	int num_bytes;
 	int cnt_bytes;
 	int cnt_samples;
+
+
 
 	uint64_t last_limit_samples0;
 	uint64_t last_limit_samples1;
@@ -151,36 +199,36 @@ struct dev_context {
 
 SR_PRIV extern const char *socket_logic_channel_names[NUM_CHANNELS+1];
 
-SR_PRIV int socket_logic_send_shortcommand(struct scpi_tcp *tcp,
+SR_PRIV int socket_logic_send_shortcommand(struct tcp_socket *tcp,
 		uint8_t command);
-SR_PRIV int socket_logic_send_longcommand(struct scpi_tcp *tcp,
+SR_PRIV int socket_logic_send_longcommand(struct tcp_socket *tcp,
 		uint8_t command, uint8_t *data);
 
+SR_PRIV int tcp_open(void *priv);
 
-SR_PRIV int scpi_tcp_open(void *priv);
-
-SR_PRIV int scpi_tcp_source_add(struct sr_session *session, void *priv,
+SR_PRIV int tcp_source_add(struct sr_session *session, void *priv,
 		int events, int timeout, sr_receive_data_callback cb, void *cb_data);
 
+SR_PRIV int tcp_source_remove(struct sr_session *session, void *priv);
 
-SR_PRIV int scpi_tcp_source_remove(struct sr_session *session, void *priv);
+SR_PRIV int tcp_send(void *priv, const char *command);
 
-SR_PRIV int scpi_tcp_send(void *priv, const char *command);
+SR_PRIV int tcp_raw_read_data(void *priv, unsigned char *buf, int maxlen);
 
+SR_PRIV int tcp_close(void *priv);
 
-SR_PRIV int scpi_tcp_close(void *priv);
+SR_PRIV void tcp_free(void *priv);
 
-SR_PRIV void scpi_tcp_free(void *priv);
 SR_PRIV void socket_logic_channel_mask(const struct sr_dev_inst *sdi);
-SR_PRIV int socket_logic_convert_trigger(const struct sr_dev_inst *sdi);
+
 SR_PRIV struct dev_context *socket_logic_dev_new(void);
-SR_PRIV int socket_logic_set_samplerate(const struct sr_dev_inst *sdi,
-		uint64_t samplerate);
+
 SR_PRIV void socket_logic_abort_acquisition(const struct sr_dev_inst *sdi);
+
 SR_PRIV void socket_logic_stop(const struct sr_dev_inst *sdi);
+
 SR_PRIV int socket_logic_receive_data(int fd, int revents, void *cb_data);
 
-SR_PRIV int scpi_tcp_raw_read_data(void *priv, unsigned char *buf, int maxlen);
 
 
 #endif
