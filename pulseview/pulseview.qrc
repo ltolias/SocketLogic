@@ -2,6 +2,8 @@
     <qresource prefix="/" >
 	<file>icons/application-exit.png</file>
 	<file>icons/configure.png</file>
+	<file>icons/trigger.png</file>
+	<file>icons/trigger1.png</file>
 	<file>icons/decoder-delete.svg</file>
 	<file>icons/decoder-hidden.svg</file>
 	<file>icons/decoder-shown.svg</file>

@@ -315,7 +315,7 @@ int stage;
 #define CMD_SET_EMASK       12
 #define CMD_SET_CONFIG      13
 #define CMD_SET_SERIALOPTS  14
-#define CMD_CAPTURE_SIZE    15
+#define CMD_SET_LIMIT       15
 #define CMD_SAMPLE_RATE     16
 
 #define RESP_RESET          0
@@ -334,7 +334,7 @@ int stage;
 #define RESP_SET_EMASK      12
 #define RESP_SET_CONFIG     13
 #define RESP_SET_SERIALOPTS 14
-#define RESP_CAPTURE_SIZE   15
+#define RESP_SET_LIMIT      15
 #define RESP_SAMPLE_RATE    16
 
 
@@ -429,7 +429,7 @@ void doStateMachine()
             printf("\t\tcommand: ID\n");
             //write_reg(WRITE0,0x00,0x00,0x00,CMD_ID);
             //while (read_reg(READ0)[4] != RESP_ID);
-            sprintf(server_message, "1SLO");
+            sprintf(server_message, "SKLO");
             write(client_sock , server_message , strlen(server_message));
         }
 
@@ -484,7 +484,7 @@ void doStateMachine()
         arg_sum = arguments[0] + 256*arguments[1] + 256*256*arguments[2] + 256*256*256*arguments[3];
         //printf("%d\n", arg_sum);
 
-        if (command == CMD_CAPTURE_SIZE)
+        if (command == CMD_SET_LIMIT)
         {
             total_samples = arg_sum+1;
             write_reg(0x02,arguments[3],arguments[2],arguments[1],arguments[0]);

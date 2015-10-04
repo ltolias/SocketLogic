@@ -45,7 +45,7 @@ using sigrok::Error;
 using pv::devices::HardwareDevice;
 
 namespace pv {
-namespace dialogs {
+namespace popups {
 
 GeneralTab::GeneralTab(QWidget *parent)
     : QWidget(parent)
@@ -53,28 +53,98 @@ GeneralTab::GeneralTab(QWidget *parent)
     QLabel *valueLabel = new QLabel(tr("Match Value (ch:val,ch:val)"));
     valueEdit = new QLineEdit("");
 
+    QLabel *rangeLabel = new QLabel(tr("Match Range (ch:val,ch:val)"));
+    rangeEdit = new QLineEdit("");
+
+    QLabel *edgeLabel = new QLabel(tr("Match Edge (ch:val,ch:val)"));
+    edgeEdit = new QLineEdit("");
+
+
+    QLabel *aosLabel = new QLabel(tr("Arm on Step"));
+    aosEdit = new QLineEdit("");
+
+    QLabel *serialLabel = new QLabel(tr("Serial Mode?"));
+    serialBox = new QCheckBox();
+
+    /*delay;
+	uint8_t repetitions;
+	uint8_t data_ch;
+	uint8_t clock_ch;
+	uint8_t cycle_delay;*/
+
+
+	QLabel *repetitionsLabel = new QLabel(tr("Repetitions"));
+    repetitionsSpinBox = new QSpinBox;
+
+    QLabel *cycledelayLabel = new QLabel(tr("Cycle Delay"));
+    cycledelaySpinBox = new QSpinBox;
+
+    QLabel *datachLabel = new QLabel(tr("Data Channel"));
+    datachSpinBox = new QSpinBox;
+
+    QLabel *clockchLabel = new QLabel(tr("Clock Channel"));
+    clockchSpinBox = new QSpinBox;
+
+    repetitionsSpinBox->setRange(1,100);
+    repetitionsSpinBox->setSingleStep(1);
+    repetitionsSpinBox->setValue(1);
+
+    datachSpinBox->setRange(1,16);
+    datachSpinBox->setSingleStep(1);
+    datachSpinBox->setValue(1);
+
+    clockchSpinBox->setRange(1,16);
+    clockchSpinBox->setSingleStep(1);
+    clockchSpinBox->setValue(1);
+
+    cycledelaySpinBox->setRange(1,100);
+    cycledelaySpinBox->setSingleStep(1);
+    cycledelaySpinBox->setValue(1);
+
+
     QVBoxLayout *mainLayout = new QVBoxLayout;
+
+
+    mainLayout->addWidget(serialLabel);
+    mainLayout->addWidget(serialBox);
+
+    mainLayout->addWidget(aosLabel);
+    mainLayout->addWidget(aosEdit);
 
     mainLayout->addWidget(valueLabel);
     mainLayout->addWidget(valueEdit);
 
+    mainLayout->addWidget(rangeLabel);
+    mainLayout->addWidget(rangeEdit);
+
+    mainLayout->addWidget(edgeLabel);
+    mainLayout->addWidget(edgeEdit);
+
+    QGridLayout *gridLayout = new QGridLayout();
+
+    gridLayout->addWidget(repetitionsLabel,0,1);
+    gridLayout->addWidget(repetitionsSpinBox,0,2);
+
+    gridLayout->addWidget(cycledelayLabel,0,3);
+    gridLayout->addWidget(cycledelaySpinBox,0,4);
+
+    gridLayout->addWidget(datachLabel,1,1);
+    gridLayout->addWidget(datachSpinBox,1,2);
+
+    gridLayout->addWidget(clockchLabel,1,3);
+    gridLayout->addWidget(clockchSpinBox,1,4);
+
+	mainLayout->addLayout(gridLayout);
     mainLayout->addStretch(1);
     setLayout(mainLayout);
 
 }
-// pv::DeviceManager &device_manager) :
-// 	QDialog(parent),
-// 	device_manager_(device_manager),
-TriggerDialog::TriggerDialog(Session &session, pv::DeviceManager &device_manager, QWidget *parent) :
-	QDialog(parent),
+
+
+TriggerPopup::TriggerPopup(Session &session, pv::DeviceManager &device_manager, QWidget *parent) :
+	Popup(parent),
 	session_(session),
 	device_manager_(device_manager)
-	//layout_(this),
-	//form_(this),
-	//form_layout_(&form_),
-	//drivers_(&form_),
-	//serial_devices_(&form_),
-	//device_list_(this),
 {
 	setWindowTitle(tr("Setup Trigger"));
 
@@ -104,16 +174,16 @@ TriggerDialog::TriggerDialog(Session &session, pv::DeviceManager &device_manager
 
 
 
-   	okButton = new QPushButton(tr("&Ok"));
+   	okButton = new QPushButton(tr("&Write to Device"));
     okButton->setDefault(true);
 
-    cancelButton = new QPushButton(tr("&Cancel"));
+    //cancelButton = new QPushButton(tr("&Cancel"));
     //moreButton->setCheckable(true);
     //moreButton->setAutoDefault(false);
 
     buttonBox = new QDialogButtonBox(Qt::Horizontal);
     buttonBox->addButton(okButton, QDialogButtonBox::ActionRole);
-    buttonBox->addButton(cancelButton, QDialogButtonBox::ActionRole);
+    //buttonBox->addButton(cancelButton, QDialogButtonBox::ActionRole);
 
 
 	QVBoxLayout *mainLayout = new QVBoxLayout;
@@ -174,7 +244,7 @@ struct trigger_stage_config {
 };
 
 
-void TriggerDialog::handleOk()
+void TriggerPopup::handleOk()
 {
 	struct trigger_config *trigger;
 
@@ -205,7 +275,7 @@ void TriggerDialog::handleOk()
 		stage->cycle_delay = 0;
 		stage->format = 0;
 		stage->arm_on_step = 0;
-		
+
 		if (triggerTab[x]->valueEdit->text().length() > 0)
 		{
 			stagecount++;

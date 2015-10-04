@@ -86,7 +86,6 @@ private Q_SLOTS:
 	void on_sample_count_changed();
 	void on_sample_rate_changed();
 	void on_run_stop();
-	void on_trigger();
 
 	void on_config_changed();
 
@@ -104,6 +103,7 @@ private:
 	QAction *configure_button_action_;
 
 	pv::widgets::PopupToolButton channels_button_;
+	pv::widgets::PopupToolButton trigopts_button_;
 
 	pv::widgets::SweepTimingWidget sample_count_;
 	pv::widgets::SweepTimingWidget sample_rate_;
@@ -116,7 +116,6 @@ private:
 	QIcon icon_green_;
 	QIcon icon_grey_;
 	QToolButton run_stop_button_;
-	QToolButton trigger_button_;
 	QAction *trigger_button_action_;
 };
 

@@ -63,7 +63,7 @@ SR_PRIV int socket_logic_send_shortcommand(struct tcp_socket *tcp,
 	terminated_command = g_strdup_printf("%.2x", command);
 	
 	sr_dbg("Sending cmd 0x%.2x.", command);
-	if (tcp_socket_send(tcp, terminated_command) <= 0)
+	if (sl_tcp_send(tcp, terminated_command) <= 0)
 	{
 		g_free(terminated_command);
 		return SR_ERR;
@@ -82,7 +82,7 @@ SR_PRIV int socket_logic_send_longcommand(struct tcp_socket *tcp,
 	sr_dbg("Sending cmd 0x%.2x data 0x%.2x%.2x%.2x%.2x.", command,
 			data[0], data[1], data[2], data[3]);
 
-	if (tcp_socket_send(tcp, terminated_command) <= 0)
+	if (sl_tcp_send(tcp, terminated_command) <= 0)
 	{
 		g_free(terminated_command);
 		return SR_ERR;
@@ -92,7 +92,7 @@ SR_PRIV int socket_logic_send_longcommand(struct tcp_socket *tcp,
 }
 
 
-SR_PRIV int tcp_socket_open(void *priv)
+SR_PRIV int sl_tcp_open(void *priv)
 {
 	struct tcp_socket *tcp = priv;
 	struct addrinfo hints;
@@ -136,7 +136,7 @@ SR_PRIV int tcp_socket_open(void *priv)
 }
 
 
-SR_PRIV int tcp_socket_source_add(struct sr_session *session, void *priv,
+SR_PRIV int sl_tcp_source_add(struct sr_session *session, void *priv,
 		int events, int timeout, sr_receive_data_callback cb, void *cb_data)
 {
 	struct tcp_socket *tcp = priv;
@@ -145,14 +145,14 @@ SR_PRIV int tcp_socket_source_add(struct sr_session *session, void *priv,
 			cb, cb_data);
 }
 
-SR_PRIV int tcp_socket_source_remove(struct sr_session *session, void *priv)
+SR_PRIV int sl_tcp_source_remove(struct sr_session *session, void *priv)
 {
 	struct tcp_socket *tcp = priv;
 
 	return sr_session_source_remove(session, tcp->socket);
 }
 
-SR_PRIV int tcp_socket_send(void *priv, const char *command)
+SR_PRIV int sl_tcp_send(void *priv, const char *command)
 {
 	struct tcp_socket *tcp = priv;
 	int len, out;
@@ -180,7 +180,7 @@ SR_PRIV int tcp_socket_send(void *priv, const char *command)
 	return out;
 }
 
-SR_PRIV int tcp_socket_raw_read_data(void *priv, unsigned char *buf, int maxlen)
+SR_PRIV int sl_tcp_raw_read_data(void *priv, unsigned char *buf, int maxlen)
 {
 	struct tcp_socket *tcp = priv;
 	int len;
@@ -200,7 +200,7 @@ SR_PRIV int tcp_socket_raw_read_data(void *priv, unsigned char *buf, int maxlen)
 }
 
 
-SR_PRIV int tcp_socket_close(void *priv)
+SR_PRIV int sl_tcp_close(void *priv)
 {
 	struct tcp_socket *tcp = priv;
 
@@ -210,7 +210,7 @@ SR_PRIV int tcp_socket_close(void *priv)
 	return SR_OK;
 }
 
-SR_PRIV void tcp_socket_free(void *priv)
+SR_PRIV void sl_tcp_free(void *priv)
 {
 	struct tcp_socket *tcp = priv;
 
@@ -271,7 +271,7 @@ SR_PRIV void socket_logic_stop(const struct sr_dev_inst *sdi)
 	struct tcp_socket *tcp;
 
 	tcp = sdi->conn;
-	tcp_socket_source_remove(sdi->session, tcp);
+	sl_tcp_source_remove(sdi->session, tcp);
 
 	/* Terminate session */
 	packet.type = SR_DF_END;
@@ -304,9 +304,9 @@ SR_PRIV int socket_logic_receive_data(int fd, int revents, void *cb_data)
 	if (devc->num_transfers++ == 0) 
 	{
 		//first time around
-		tcp_socket_source_remove(sdi->session, tcp);
+		sl_tcp_source_remove(sdi->session, tcp);
 
-		tcp_socket_source_add(sdi->session, tcp, G_IO_IN, 1000,
+		sl_tcp_source_add(sdi->session, tcp, G_IO_IN, 1000,
 				socket_logic_receive_data, cb_data);
 
 
@@ -321,7 +321,7 @@ SR_PRIV int socket_logic_receive_data(int fd, int revents, void *cb_data)
 
 	if (revents == G_IO_IN && devc->num_samples < devc->limit_samples && devc->num_frames < limit_frames) 
 	{
-		if (tcp_socket_raw_read_data(tcp, &byte, 1) != 1)
+		if (sl_tcp_raw_read_data(tcp, &byte, 1) != 1)
 			return FALSE;
 		devc->cnt_bytes++;
 

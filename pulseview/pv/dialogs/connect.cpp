@@ -80,6 +80,17 @@ Connect::Connect(QWidget *parent, pv::DeviceManager &device_manager) :
 	layout_.addWidget(&scan_button_);
 	layout_.addWidget(&device_list_);
 	layout_.addWidget(&button_box_);
+
+	
+	
+	
+
+	set_serial_connection();
+
+	scan_pressed();
+
+	//accept();
+
 }
 
 shared_ptr<HardwareDevice> Connect::get_selected_device() const
@@ -108,11 +119,12 @@ void Connect::populate_drivers()
 		                        driver->config_check(
 			ConfigKey::OSCILLOSCOPE, ConfigKey::DEVICE_OPTIONS);
 
-		if (supported_device)
+		if (supported_device && strcmp(driver->name().c_str(),"socket-logic") == 0)
 			drivers_.addItem(QString("%1 (%2)").arg(
 				driver->long_name().c_str()).arg(name.c_str()),
 				qVariantFromValue(driver));
 	}
+
 }
 
 void Connect::unset_connection()

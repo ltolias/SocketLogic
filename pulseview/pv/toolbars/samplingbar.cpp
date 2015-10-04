@@ -35,6 +35,7 @@
 #include <pv/mainwindow.hpp>
 #include <pv/popups/deviceoptions.hpp>
 #include <pv/popups/channels.hpp>
+#include <pv/popups/trigger.hpp>
 #include <pv/util.hpp>
 
 #include <libsigrok/libsigrok.hpp>
@@ -67,6 +68,7 @@ SamplingBar::SamplingBar(Session &session, MainWindow &main_window) :
 	configure_button_(this),
 	configure_button_action_(NULL),
 	channels_button_(this),
+	trigopts_button_(this),
 	sample_count_(" samples", this),
 	sample_rate_("Hz", this),
 	updating_sample_rate_(false),
@@ -76,7 +78,6 @@ SamplingBar::SamplingBar(Session &session, MainWindow &main_window) :
 	icon_green_(":/icons/status-green.svg"),
 	icon_grey_(":/icons/status-grey.svg"),
 	run_stop_button_(this),
-	trigger_button_(this),
 	trigger_button_action_(nullptr)
 {
 	setObjectName(QString::fromUtf8("SamplingBar"));
@@ -90,11 +91,8 @@ SamplingBar::SamplingBar(Session &session, MainWindow &main_window) :
 	connect(&sample_rate_, SIGNAL(value_changed()),
 		this, SLOT(on_sample_rate_changed()));
 
-	connect(&trigger_button_, SIGNAL(clicked()),
-		this, SLOT(on_trigger()));
-
-	trigger_button_.setIcon(QIcon::fromTheme("configure",
-		QIcon(":/icons/configure.png")));
+	
+	trigopts_button_.setIcon(QIcon::fromTheme("configure", QIcon(":/icons/trigger.png")));
 
 
 
@@ -115,9 +113,10 @@ SamplingBar::SamplingBar(Session &session, MainWindow &main_window) :
 	addWidget(&channels_button_);
 	addWidget(&sample_count_);
 	addWidget(&sample_rate_);
+	addWidget(&trigopts_button_);
 
 	addWidget(&run_stop_button_);
-	trigger_button_action_ = addWidget(&trigger_button_);
+	//trigger_button_action_ = addWidget(&trigger_button_);
 
 	sample_count_.installEventFilter(this);
 	sample_rate_.installEventFilter(this);
@@ -342,6 +341,9 @@ void SamplingBar::update_device_config_widgets()
 	Channels *const channels = new Channels(session_, this);
 	channels_button_.set_popup(channels);
 
+	TriggerPopup *const trigger_opts = new TriggerPopup(session_, session_.device_manager(), this);
+	trigopts_button_.set_popup(trigger_opts);
+
 	// Update supported options.
 	sample_count_supported_ = false;
 
@@ -470,12 +472,7 @@ void SamplingBar::on_run_stop()
 	commit_sample_rate();	
 	main_window_.run_stop();
 }
-void SamplingBar::on_trigger()
-{
-	//commit_sample_count();
-	//commit_sample_rate();	
-	main_window_.trigger();
-}
+
 
 
 void SamplingBar::on_config_changed()

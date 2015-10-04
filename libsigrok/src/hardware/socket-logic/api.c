@@ -148,7 +148,7 @@ static GSList *scan(GSList *options)
 	tcp->socket  = -1;
 
 	sr_info("Probing %s.", serialcomm);
-	if (tcp_open(tcp) != SR_OK)
+	if (sl_tcp_open(tcp) != SR_OK)
 		return NULL;
 
 	ret = SR_OK;
@@ -166,8 +166,8 @@ static GSList *scan(GSList *options)
 			
 	g_usleep(RESPONSE_DELAY_US);
 
-	ret = tcp_raw_read_data(tcp, (unsigned char*)buf, 4);
-	tcp_close(tcp);
+	ret = sl_tcp_raw_read_data(tcp, (unsigned char*)buf, 4);
+	sl_tcp_close(tcp);
 	if (ret != 4) {
 		sr_err("Invalid reply (expected 4 bytes, got %d).", ret);
 		return NULL;
@@ -642,7 +642,7 @@ static int dev_acquisition_start(const struct sr_dev_inst *sdi,
 	std_session_send_df_header(cb_data, LOG_PREFIX);
 
 
-	tcp_source_add(sdi->session, tcp, G_IO_IN, -1,
+	sl_tcp_source_add(sdi->session, tcp, G_IO_IN, -1,
 				socket_logic_receive_data, cb_data);
 
 	return SR_OK;
@@ -662,7 +662,7 @@ static int tcp_dev_open(struct sr_dev_inst *sdi)
 	struct tcp_socket *tcp;
 
 	tcp = sdi->conn;
-	if (tcp_open(tcp) != SR_OK)
+	if (sl_tcp_open(tcp) != SR_OK)
 		return SR_ERR;
 
 	sdi->status = SR_ST_ACTIVE;
@@ -676,7 +676,7 @@ static int tcp_dev_close(struct sr_dev_inst *sdi)
 
 	tcp = sdi->conn;
 	if (tcp && sdi->status == SR_ST_ACTIVE) {
-		tcp_close(tcp);
+		sl_tcp_close(tcp);
 		sdi->status = SR_ST_INACTIVE;
 	}
 

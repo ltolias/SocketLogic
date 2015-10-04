@@ -31,11 +31,16 @@
 //#include <QListWidget>
 #include <QTabWidget>
 #include <QLabel>
+ #include <QSpinBox>
+ #include <QCheckBox>
 #include <QWidget>
 #include <QVBoxLayout>
+ #include <QGridLayout>
 #include <QPushButton>
 #include <QObject>
  #include <pv/devicemanager.hpp>
+
+ #include <pv/widgets/popup.hpp>
 
 
 #define NUM_STAGES 8
@@ -60,7 +65,7 @@ namespace pv {
 class Session;
 
 
-namespace dialogs {
+namespace popups {
 
 class GeneralTab : public QWidget
 {
@@ -68,17 +73,26 @@ class GeneralTab : public QWidget
 
 public:
     explicit GeneralTab(QWidget *parent = 0);
+    QLineEdit *aosEdit;
 	QLineEdit *valueEdit;
+	QLineEdit *rangeEdit;
+	QLineEdit *edgeEdit;
+	QCheckBox *serialBox;
+	QSpinBox *repetitionsSpinBox;
+	QSpinBox *cycledelaySpinBox;
+	QSpinBox *clockchSpinBox;
+	QSpinBox *datachSpinBox;
 
 };
 
 
-class TriggerDialog : public QDialog
+class TriggerPopup : public pv::widgets::Popup
 {
 	Q_OBJECT
 
+
 public:
-	explicit TriggerDialog(Session &session, pv::DeviceManager &device_manager, QWidget *parent);
+	TriggerPopup(Session &session, pv::DeviceManager &device_manager, QWidget *parent);
 
 	
 
@@ -97,6 +111,7 @@ private:
 	GeneralTab *triggerTab[NUM_STAGES];
 
 	QLineEdit *trigOnEdit;
+
 
 private Q_SLOTS:
 	void handleOk();

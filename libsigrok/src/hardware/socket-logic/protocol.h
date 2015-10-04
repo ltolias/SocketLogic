@@ -204,20 +204,20 @@ SR_PRIV int socket_logic_send_shortcommand(struct tcp_socket *tcp,
 SR_PRIV int socket_logic_send_longcommand(struct tcp_socket *tcp,
 		uint8_t command, uint8_t *data);
 
-SR_PRIV int tcp_open(void *priv);
+SR_PRIV int sl_tcp_open(void *priv);
 
-SR_PRIV int tcp_source_add(struct sr_session *session, void *priv,
+SR_PRIV int sl_tcp_source_add(struct sr_session *session, void *priv,
 		int events, int timeout, sr_receive_data_callback cb, void *cb_data);
 
-SR_PRIV int tcp_source_remove(struct sr_session *session, void *priv);
+SR_PRIV int sl_tcp_source_remove(struct sr_session *session, void *priv);
 
-SR_PRIV int tcp_send(void *priv, const char *command);
+SR_PRIV int sl_tcp_send(void *priv, const char *command);
 
-SR_PRIV int tcp_raw_read_data(void *priv, unsigned char *buf, int maxlen);
+SR_PRIV int sl_tcp_raw_read_data(void *priv, unsigned char *buf, int maxlen);
 
-SR_PRIV int tcp_close(void *priv);
+SR_PRIV int sl_tcp_close(void *priv);
 
-SR_PRIV void tcp_free(void *priv);
+SR_PRIV void sl_tcp_free(void *priv);
 
 SR_PRIV void socket_logic_channel_mask(const struct sr_dev_inst *sdi);
 

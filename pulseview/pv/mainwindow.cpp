@@ -46,7 +46,6 @@
 #include "dialogs/about.hpp"
 #include "dialogs/connect.hpp"
 #include "dialogs/storeprogress.hpp"
-#include "dialogs/trigger.hpp"
 #include "toolbars/samplingbar.hpp"
 #include "view/logicsignal.hpp"
 #include "view/view.hpp"
@@ -93,6 +92,9 @@ MainWindow::MainWindow(DeviceManager &device_manager,
 			Qt::QueuedConnection,
 			Q_ARG(QString, s));
 	}
+
+
+	on_actionConnect_triggered();
 }
 
 void MainWindow::run_stop()
@@ -109,15 +111,6 @@ void MainWindow::run_stop()
 		break;
 	}
 }
-
-
-void MainWindow::trigger()
-{
-
-	dialogs::TriggerDialog dlg(session_, device_manager_, this);
-	dlg.exec();
-}
-
 
 void MainWindow::select_device(shared_ptr<Device> device)
 {
