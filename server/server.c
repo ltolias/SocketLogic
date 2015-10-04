@@ -338,7 +338,7 @@ int stage;
 #define RESP_SAMPLE_RATE    16
 
 
-#define SPI_BUFF_LEN 4096 + 1
+#define SPI_BUFF_LEN 4096 + 1 
 
 unsigned char spi_data[SPI_BUFF_LEN];
 
